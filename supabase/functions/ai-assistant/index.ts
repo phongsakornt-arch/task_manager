@@ -202,9 +202,28 @@ Deno.serve(async (req) => {
     const openaiKey = Deno.env.get('OPENAI_API_KEY')
     if (!groqKey && !openaiKey) return jsonResponse({ error: 'กรุณาตั้งค่า GROQ_API_KEY หรือ OPENAI_API_KEY' }, 500)
 
-    const provider = groqKey
-      ? { baseUrl: 'https://api.groq.com/openai/v1/chat/completions', key: groqKey, model: 'llama-3.3-70b-versatile' }
-      : { baseUrl: 'https://api.openai.com/v1/chat/completions', key: openaiKey!, model: 'gpt-4o-mini' }
+    // ลองหลาย model/provider ตามลำดับ เผื่อบาง model ไม่รองรับ tool-calling
+    // หรือ deprecate ไปแล้ว — เหมือนแพทเทิร์นที่ใช้ในฟังก์ชัน AI อื่นของระบบนี้
+    const providers: { baseUrl: string; key: string; model: string }[] = []
+    if (groqKey) {
+      providers.push(
+        { baseUrl: 'https://api.groq.com/openai/v1/chat/completions', key: groqKey, model: 'llama-3.3-70b-versatile' },
+        { baseUrl: 'https://api.groq.com/openai/v1/chat/completions', key: groqKey, model: 'llama-3.1-8b-instant' },
+      )
+    }
+    if (openaiKey) providers.push({ baseUrl: 'https://api.openai.com/v1/chat/completions', key: openaiKey, model: 'gpt-4o-mini' })
+
+    async function callChatWithFallback(messages: ChatMessage[]) {
+      let lastErr = 'ไม่พบ provider ที่ใช้งานได้'
+      for (const p of providers) {
+        try {
+          return await callChat(p.baseUrl, p.key, p.model, messages)
+        } catch (err) {
+          lastErr = err instanceof Error ? err.message : String(err)
+        }
+      }
+      throw new Error(lastErr)
+    }
 
     const systemPrompt = await buildSystemPrompt(supabase)
     const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }, ...clientMessages]
@@ -212,7 +231,7 @@ Deno.serve(async (req) => {
     let proposedAction: { type: 'create_task'; payload: Record<string, unknown> } | null = null
 
     for (let round = 0; round < 4; round++) {
-      const assistantMsg = await callChat(provider.baseUrl, provider.key, provider.model, messages)
+      const assistantMsg = await callChatWithFallback(messages)
       if (!assistantMsg) return jsonResponse({ error: 'ไม่ได้รับคำตอบจาก AI' }, 502)
       messages.push(assistantMsg)
 

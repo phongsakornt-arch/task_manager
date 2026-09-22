@@ -70,7 +70,14 @@ export default function AIAssistant() {
 
     setBusy(false)
     if (invokeError || !data?.success) {
-      setError(data?.error ?? invokeError?.message ?? 'เกิดข้อผิดพลาด ลองใหม่อีกครั้ง')
+      // invoke() ทิ้งข้อความ error จริงไว้ที่ context (Response) แทนที่จะ throw ตรงๆ
+      // ต้องอ่านเอง ไม่งั้นได้แค่ข้อความทั่วไป "non-2xx status code" ที่ไม่มีประโยชน์
+      let message = data?.error ?? invokeError?.message ?? 'เกิดข้อผิดพลาด ลองใหม่อีกครั้ง'
+      const context = (invokeError as { context?: Response })?.context
+      if (context && typeof context.json === 'function') {
+        try { message = (await context.json())?.error ?? message } catch { /* ignore */ }
+      }
+      setError(message)
       return
     }
     setHistory(data.messages)
