@@ -8,8 +8,17 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('push', event => {
   if (!event.data) return
+  // event.data.json()/.text() do their own UTF-8 decoding internally, and on
+  // iOS Safari that path mangles any non-ASCII (Thai) text while leaving
+  // ASCII intact. Decoding the raw bytes ourselves with TextDecoder — a
+  // separate, much more widely used API — avoids whatever bug that is.
   let payload = {}
-  try { payload = event.data.json() } catch { payload = { title: 'YEC Task Manager', body: event.data.text() } }
+  try {
+    const text = new TextDecoder('utf-8').decode(event.data.arrayBuffer())
+    payload = JSON.parse(text)
+  } catch {
+    payload = { title: 'YEC Task Manager', body: '' }
+  }
 
   const title = payload.title || 'YEC Task Manager'
   const options = {
