@@ -28,6 +28,17 @@ type ProposedCreateTask = {
     end_time?: string
   }
 }
+type ProposedCreateTodo = {
+  type: 'create_todo'
+  payload: {
+    title?: string
+    note?: string
+    priority?: 'normal' | 'high'
+    due_date?: string
+    due_time?: string
+  }
+}
+type ProposedAction = ProposedCreateTask | ProposedCreateTodo
 
 export default function AIAssistant() {
   const { user } = useAuthStore()
@@ -38,7 +49,7 @@ export default function AIAssistant() {
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [proposed, setProposed] = useState<ProposedCreateTask | null>(null)
+  const [proposed, setProposed] = useState<ProposedAction | null>(null)
   const [creating, setCreating] = useState(false)
   const [createdMessage, setCreatedMessage] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -65,7 +76,7 @@ export default function AIAssistant() {
 
     const { data, error: invokeError } = await supabase.functions.invoke<{
       success: boolean; reply: string; messages: ChatMessage[]
-      proposedAction: ProposedCreateTask | null; error?: string
+      proposedAction: ProposedAction | null; error?: string
     }>('ai-assistant', { body: { messages: nextHistory } })
 
     setBusy(false)
@@ -85,7 +96,7 @@ export default function AIAssistant() {
   }
 
   const confirmCreateTask = async () => {
-    if (!proposed || !user || creating) return
+    if (!proposed || proposed.type !== 'create_task' || !user || creating) return
     setCreating(true)
     setError('')
     const p = proposed.payload
@@ -123,6 +134,41 @@ export default function AIAssistant() {
     setProposed(null)
   }
 
+  const confirmCreateTodo = async () => {
+    if (!proposed || proposed.type !== 'create_todo' || !user || creating) return
+    setCreating(true)
+    setError('')
+    const p = proposed.payload
+    const { data, error: insertError } = await supabase
+      .from('todo_items')
+      .insert({
+        title: (p.title ?? 'Todo ใหม่').trim(),
+        note: p.note?.trim() || null,
+        owner_id: user.id,
+        owner_email: user.email,
+        owner_name: user.name,
+        created_by: user.id,
+        created_by_email: user.email,
+        status: 'open',
+        priority: p.priority === 'high' ? 'high' : 'normal',
+        due_date: p.due_date || null,
+        due_time: p.due_time || null,
+        pinned: false,
+        sort_order: Date.now(),
+        deleted: false,
+      })
+      .select('*')
+      .single()
+    setCreating(false)
+    if (insertError || !data) {
+      setError(insertError?.message ?? 'จด Todo ไม่สำเร็จ')
+      return
+    }
+    await logActivity(user, 'todo.created', data.title, { todo_id: data.id, source: 'ai-assistant' })
+    setCreatedMessage(`✅ จด Todo "${data.title}" แล้ว`)
+    setProposed(null)
+  }
+
   if (!user) return null
 
   return (
@@ -153,14 +199,14 @@ export default function AIAssistant() {
           <div style={{ background: `linear-gradient(135deg, ${NAVY}, #2d4a8a)`, padding: '14px 18px', flexShrink: 0 }}>
             <div style={{ color: '#fff', fontFamily: FONT, fontWeight: 800, fontSize: 14 }}>💬 AI ผู้ช่วย</div>
             <div style={{ color: 'rgba(255,255,255,0.6)', fontFamily: FONT, fontSize: 11.5, marginTop: 2 }}>
-              ค้นหา/สรุปงานได้ทันที — สร้างงานใหม่ต้องกดยืนยันก่อนเสมอ
+              ค้นหา/สรุปงานได้ทันที — สร้างงาน/จด Todo ต้องกดยืนยันก่อนเสมอ
             </div>
           </div>
 
           <div ref={scrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 14, display: 'grid', gap: 10, alignContent: 'start' }}>
             {history.length === 0 && (
               <div style={{ color: '#94a3b8', fontFamily: FONT, fontSize: 13, textAlign: 'center', padding: '20px 8px' }}>
-                ลองพิมพ์ เช่น "หางานที่เกี่ยวกับประชุมงบ" หรือ "สร้างงานประชุมทีมวันศุกร์นี้"
+                ลองพิมพ์ เช่น "หางานที่เกี่ยวกับประชุมงบ", "สร้างงานประชุมทีมวันศุกร์นี้" หรือ "จด Todo เตือนโทรหาโอมพรุ่งนี้"
               </div>
             )}
             {history.filter(m => m.role === 'user' || m.role === 'assistant').map((m, i) => (
@@ -180,9 +226,9 @@ export default function AIAssistant() {
               ) : null
             ))}
 
-            {proposed && (
+            {proposed && proposed.type === 'create_task' && (
               <div style={{ justifySelf: 'start', maxWidth: '92%', border: '1.5px solid #c9a84c', borderRadius: 14, padding: 12, background: '#fffbeb' }}>
-                <div style={{ fontFamily: FONT, fontWeight: 800, fontSize: 12.5, color: '#92400e', marginBottom: 6 }}>📋 ข้อเสนอสร้างงานใหม่</div>
+                <div style={{ fontFamily: FONT, fontWeight: 800, fontSize: 12.5, color: '#92400e', marginBottom: 6 }}>📋 ข้อเสนอสร้างงานใหม่ (ทีม)</div>
                 <div style={{ fontFamily: FONT, fontSize: 13.5, color: '#1e293b', fontWeight: 700 }}>{proposed.payload.title}</div>
                 {proposed.payload.description && <div style={{ fontFamily: FONT, fontSize: 12.5, color: '#64748b', marginTop: 3 }}>{proposed.payload.description}</div>}
                 {(proposed.payload.start_date || proposed.payload.end_date) && (
@@ -197,6 +243,35 @@ export default function AIAssistant() {
                     style={{ flex: 1, border: 'none', borderRadius: 10, padding: '8px 10px', background: '#1a2744', color: '#fff', fontFamily: FONT, fontWeight: 700, fontSize: 12.5, cursor: creating ? 'default' : 'pointer', opacity: creating ? 0.6 : 1 }}
                   >
                     {creating ? 'กำลังสร้าง...' : '✅ ยืนยันสร้างงาน'}
+                  </button>
+                  <button
+                    onClick={() => setProposed(null)}
+                    disabled={creating}
+                    style={{ border: '1px solid #e4e8f2', borderRadius: 10, padding: '8px 12px', background: '#fff', color: '#64748b', fontFamily: FONT, fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+                  >
+                    ยกเลิก
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {proposed && proposed.type === 'create_todo' && (
+              <div style={{ justifySelf: 'start', maxWidth: '92%', border: '1.5px solid #a855f7', borderRadius: 14, padding: 12, background: '#faf5ff' }}>
+                <div style={{ fontFamily: FONT, fontWeight: 800, fontSize: 12.5, color: '#7c3aed', marginBottom: 6 }}>📝 ข้อเสนอจด Todo ใหม่ (ส่วนตัว)</div>
+                <div style={{ fontFamily: FONT, fontSize: 13.5, color: '#1e293b', fontWeight: 700 }}>{proposed.payload.title}</div>
+                {proposed.payload.note && <div style={{ fontFamily: FONT, fontSize: 12.5, color: '#64748b', marginTop: 3 }}>{proposed.payload.note}</div>}
+                {proposed.payload.due_date && (
+                  <div style={{ fontFamily: FONT, fontSize: 12, color: '#64748b', marginTop: 3 }}>
+                    📅 {proposed.payload.due_date}{proposed.payload.due_time ? ` ${proposed.payload.due_time} น.` : ''}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  <button
+                    onClick={confirmCreateTodo}
+                    disabled={creating}
+                    style={{ flex: 1, border: 'none', borderRadius: 10, padding: '8px 10px', background: '#6d28d9', color: '#fff', fontFamily: FONT, fontWeight: 700, fontSize: 12.5, cursor: creating ? 'default' : 'pointer', opacity: creating ? 0.6 : 1 }}
+                  >
+                    {creating ? 'กำลังจด...' : '✅ ยืนยันจด Todo'}
                   </button>
                   <button
                     onClick={() => setProposed(null)}

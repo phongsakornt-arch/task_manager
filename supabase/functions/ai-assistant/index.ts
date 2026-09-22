@@ -67,7 +67,7 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'propose_create_task',
-      description: 'เสนอสร้างงานใหม่ — ยังไม่บันทึกจริง ระบบจะแสดงให้ผู้ใช้ยืนยันก่อนเสมอ ห้ามบอกผู้ใช้ว่า "สร้างแล้ว" ให้บอกว่า "เตรียมไว้ให้แล้ว กดยืนยันได้เลย"',
+      description: 'เสนอสร้าง "งาน" ใหม่ในบอร์ดทีม (Task Board, ทุกคนในทีมเห็น) — ใช้เมื่อผู้ใช้พูดถึงงาน/โปรเจกต์/กิจกรรมของทีม ไม่ใช่ todo ส่วนตัว ยังไม่บันทึกจริง ระบบจะแสดงให้ผู้ใช้ยืนยันก่อนเสมอ ห้ามบอกผู้ใช้ว่า "สร้างแล้ว" ให้บอกว่า "เตรียมไว้ให้แล้ว กดยืนยันได้เลย"',
       parameters: {
         type: 'object',
         properties: {
@@ -78,6 +78,24 @@ const TOOLS = [
           end_date: { type: 'string', description: 'YYYY-MM-DD หรือเว้นว่าง' },
           start_time: { type: 'string', description: 'HH:MM หรือเว้นว่าง' },
           end_time: { type: 'string', description: 'HH:MM หรือเว้นว่าง' },
+        },
+        required: ['title'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_create_todo',
+      description: 'เสนอจด "Todo ส่วนตัว" ใหม่ (เห็นเฉพาะผู้ใช้คนที่คุยอยู่คนเดียว ไม่มีใครอื่นเห็น) — ใช้เมื่อผู้ใช้พูดถึงสิ่งที่ต้องทำ/เตือนความจำส่วนตัว ไม่ใช่งานของทีม ยังไม่บันทึกจริง ระบบจะแสดงให้ผู้ใช้ยืนยันก่อนเสมอ ห้ามบอกผู้ใช้ว่า "จดแล้ว" ให้บอกว่า "เตรียมไว้ให้แล้ว กดยืนยันได้เลย"',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          note: { type: 'string' },
+          priority: { type: 'string', enum: ['normal', 'high'] },
+          due_date: { type: 'string', description: 'YYYY-MM-DD หรือเว้นว่าง' },
+          due_time: { type: 'string', description: 'HH:MM หรือเว้นว่าง' },
         },
         required: ['title'],
       },
@@ -105,9 +123,15 @@ ${sectionList}
 get_task ก่อนเสมอ** แล้วค่อยตอบจากผลลัพธ์ที่ได้กลับมาเท่านั้น ถ้าเรียกแล้ว
 count เป็น 0 ค่อยบอกผู้ใช้ว่าไม่พบจริงๆ
 
-การสร้างงานใหม่ (propose_create_task) เป็นแค่ "ข้อเสนอ" เท่านั้น ระบบจะบันทึก
-จริงก็ต่อเมื่อผู้ใช้กดยืนยันในหน้าจอเองเท่านั้น — ห้ามบอกผู้ใช้ว่า "สร้างงานให้
-แล้ว" เด็ดขาด ให้บอกว่า "เตรียมข้อมูลไว้ให้แล้ว กดยืนยันด้านล่างได้เลย"`
+แยกให้ถูกระหว่าง 2 อย่างนี้:
+- "งาน" ของทีม (propose_create_task) — ทุกคนในทีมเห็น เหมาะกับโปรเจกต์/กิจกรรม
+- "Todo" ส่วนตัว (propose_create_todo) — เห็นเฉพาะผู้ใช้คนนี้ เหมาะกับสิ่งที่ต้อง
+  ทำ/เตือนความจำส่วนตัว ถ้าผู้ใช้พูดว่า "จด", "เตือน", "ให้ฉันจำ" มักหมายถึง
+  Todo ส่วนตัว ไม่ใช่งานของทีม — ถ้าไม่แน่ใจให้ถามผู้ใช้ก่อนว่าต้องการแบบไหน
+
+ทั้งสองอย่างเป็นแค่ "ข้อเสนอ" เท่านั้น ระบบจะบันทึกจริงก็ต่อเมื่อผู้ใช้กดยืนยัน
+ในหน้าจอเองเท่านั้น — ห้ามบอกผู้ใช้ว่า "สร้าง/จดให้แล้ว" เด็ดขาด ให้บอกว่า
+"เตรียมข้อมูลไว้ให้แล้ว กดยืนยันด้านล่างได้เลย"`
 }
 
 async function execSearchTasks(supabase: SupabaseClient, args: { query?: string; status?: string; dateFrom?: string; dateTo?: string }) {
@@ -257,7 +281,7 @@ Deno.serve(async (req) => {
     const systemPrompt = await buildSystemPrompt(supabase)
     const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }, ...clientMessages]
 
-    let proposedAction: { type: 'create_task'; payload: Record<string, unknown> } | null = null
+    let proposedAction: { type: 'create_task' | 'create_todo'; payload: Record<string, unknown> } | null = null
 
     for (let round = 0; round < 4; round++) {
       const assistantMsg = await callChatWithFallback(messages)
@@ -280,6 +304,9 @@ Deno.serve(async (req) => {
         else if (call.function.name === 'summarize_attachment') result = await execSummarizeAttachment(args)
         else if (call.function.name === 'propose_create_task') {
           proposedAction = { type: 'create_task', payload: args }
+          result = { status: 'proposed', message: 'เตรียมข้อเสนอไว้แล้ว รอผู้ใช้ยืนยัน' }
+        } else if (call.function.name === 'propose_create_todo') {
+          proposedAction = { type: 'create_todo', payload: args }
           result = { status: 'proposed', message: 'เตรียมข้อเสนอไว้แล้ว รอผู้ใช้ยืนยัน' }
         } else result = { error: `unknown tool: ${call.function.name}` }
 
