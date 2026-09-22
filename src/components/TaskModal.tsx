@@ -739,7 +739,7 @@ export default function TaskModal({ task, defaultSectionId, defaultParentTaskId,
             </div>
           ) : (
             <div style={{ display: 'grid', gap: 16 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 12 }}>
                 <Field label="Section"><select value={sectionId} onChange={event => setSectionId(event.target.value)} style={inputStyle}>{sections.map(section => <option key={section.id} value={section.id}>{section.title}</option>)}</select></Field>
                 <Field label="ประเภทงาน"><select value={taskTypeId} onChange={event => setTaskTypeId(event.target.value)} style={inputStyle}><option value="">เลือกประเภทงาน</option>{taskTypes.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}</select></Field>
                 <Field label="วันเริ่ม">
