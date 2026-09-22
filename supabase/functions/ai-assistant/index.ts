@@ -177,7 +177,7 @@ async function callChat(baseUrl: string, key: string, model: string, messages: C
   const res = await fetch(baseUrl, {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages, tools: TOOLS, tool_choice: 'auto', temperature: 0.2, max_tokens: 1200 }),
+    body: JSON.stringify({ model, messages, tools: TOOLS, tool_choice: 'auto', temperature: 0.2, max_tokens: 600 }),
   })
   const raw = await res.text()
   if (!res.ok) {
@@ -194,10 +194,17 @@ Deno.serve(async (req) => {
 
   try {
     const { supabase } = await requireUser(req)
-    const { messages: clientMessages } = await req.json() as { messages: ChatMessage[] }
-    if (!Array.isArray(clientMessages) || clientMessages.length === 0) {
+    const { messages: rawClientMessages } = await req.json() as { messages: ChatMessage[] }
+    if (!Array.isArray(rawClientMessages) || rawClientMessages.length === 0) {
       return jsonResponse({ error: 'messages is required' }, 400)
     }
+    // จำกัดประวัติแชทที่ส่งเข้า LLM แต่ละครั้ง — ไม่งั้น token ต่อ request จะบวมขึ้นเรื่อยๆ
+    // จนชน rate limit ของ Groq (TPM) โดยเฉพาะรอบที่มี tool result (search/get_task) แทรกอยู่
+    // ตัดเฉพาะ user/assistant ที่มีเนื้อหาจริง เอาไว้ 10 ข้อความหลังสุดพอ (ยังพอจำบริบทได้)
+    const clientMessages = rawClientMessages
+      .filter(m => (m.role === 'user' || m.role === 'assistant') && m.content?.trim())
+      .slice(-10)
+    if (clientMessages.length === 0) return jsonResponse({ error: 'messages is required' }, 400)
 
     const groqKey = Deno.env.get('GROQ_API_KEY')
     const openaiKey = Deno.env.get('OPENAI_API_KEY')
