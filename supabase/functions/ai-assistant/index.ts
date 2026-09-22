@@ -427,6 +427,8 @@ async function execSummarizeAttachment(args: { url?: string; name?: string }) {
   }
 }
 
+type ChatError = Error & { status?: number; retryAfterMs?: number }
+
 async function callChat(baseUrl: string, key: string, model: string, messages: ChatMessage[]) {
   const res = await fetch(baseUrl, {
     method: 'POST',
@@ -437,7 +439,13 @@ async function callChat(baseUrl: string, key: string, model: string, messages: C
   if (!res.ok) {
     let msg = raw
     try { msg = JSON.parse(raw)?.error?.message ?? raw } catch { /* ignore */ }
-    throw new Error(`(${res.status}) ${msg}`)
+    const err = new Error(`(${res.status}) ${msg}`) as ChatError
+    err.status = res.status
+    // Groq TPM 429 บอกเวลาที่ต้องรอมาในข้อความเลย เช่น "Please try again in 5.805s"
+    // รอตามนั้นแล้วลองซ้ำ ดีกว่าโยน error ทิ้งทันทีเพราะ limit นี้ reset ไวมาก
+    const wait = msg.match(/try again in ([\d.]+)s/i)
+    if (wait) err.retryAfterMs = Math.ceil(parseFloat(wait[1]) * 1000)
+    throw err
   }
   return JSON.parse(raw)?.choices?.[0]?.message as ChatMessage | undefined
 }
@@ -482,10 +490,20 @@ Deno.serve(async (req) => {
     async function callChatWithFallback(messages: ChatMessage[]) {
       const errors: string[] = []
       for (const p of providers) {
-        try {
-          return await callChat(p.baseUrl, p.key, p.model, messages)
-        } catch (err) {
-          errors.push(`${p.model}: ${err instanceof Error ? err.message : String(err)}`)
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            return await callChat(p.baseUrl, p.key, p.model, messages)
+          } catch (err) {
+            const e = err as ChatError
+            errors.push(`${p.model}: ${e.message}`)
+            // ลองซ้ำ model เดิมอีกครั้งถ้าโดน rate limit ชั่วคราวและรอไม่นานเกินไป
+            // (มากกว่านั้นค่อยข้ามไป provider ถัดไปแทนที่จะรอนาน)
+            if (attempt === 0 && e.status === 429 && e.retryAfterMs && e.retryAfterMs <= 12000) {
+              await new Promise((resolve) => setTimeout(resolve, e.retryAfterMs! + 300))
+              continue
+            }
+            break
+          }
         }
       }
       throw new Error(errors.join(' | ') || 'ไม่พบ provider ที่ใช้งานได้')
@@ -551,6 +569,13 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ success: true, reply: 'ขอโทษค่ะ ตอบไม่ทันในรอบนี้ ลองถามใหม่อีกครั้งนะคะ', messages, proposedAction })
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : 'Unknown error' }, 400)
+    const rawMsg = error instanceof Error ? error.message : 'Unknown error'
+    console.error('ai-assistant error:', rawMsg)
+    // ทุก provider ชน rate limit พร้อมกัน (ช่วงคนใช้เยอะ) — ข้อความ error ดิบยาวเกินไป
+    // และไม่มีประโยชน์กับผู้ใช้ปลายทาง ให้ข้อความสั้นๆ ที่บอกว่าควรทำอะไรต่อแทน
+    if (/\(429\)/.test(rawMsg)) {
+      return jsonResponse({ error: 'ตอนนี้มีคนใช้ AI เยอะจนชนโควตาชั่วคราว ลองใหม่อีกครั้งในไม่กี่วินาทีนะคะ' }, 429)
+    }
+    return jsonResponse({ error: rawMsg }, 400)
   }
 })
