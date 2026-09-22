@@ -470,44 +470,49 @@ export default function DirectoryPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: '#eef0f7' }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 16,
-        padding: '16px 24px',
-        background: 'linear-gradient(135deg, #fff 0%, #f8faff 100%)',
-        borderBottom: '1px solid #e4e8f2',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
-        flexShrink: 0,
-      }}>
-        <div style={{
-          width: 42,
-          height: 42,
-          borderRadius: 12,
-          background: 'linear-gradient(135deg, #1a2744, #2d4a8a)',
-          color: '#fff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontFamily: 'Anuphan, sans-serif',
-          fontWeight: 700,
-          boxShadow: '0 4px 14px rgba(26,39,68,0.28)',
-        }}>D</div>
-        <div>
-          <h1 style={{ margin: 0, fontFamily: 'Anuphan, sans-serif', fontSize: 20, lineHeight: 1.2, color: '#1e293b' }}>
-            ทำเนียบคณะกรรมการ
-          </h1>
-          <p style={{ margin: '2px 0 0', fontFamily: 'Anuphan, sans-serif', fontSize: 13.5, color: '#94a3b8' }}>
-            {filteredMembers.length} จาก {members.length} คน
-          </p>
+      <div
+        className="flex flex-col md:flex-row md:items-center"
+        style={{
+          gap: 16,
+          padding: '16px 24px',
+          background: 'linear-gradient(135deg, #fff 0%, #f8faff 100%)',
+          borderBottom: '1px solid #e4e8f2',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
+          flexShrink: 0,
+        }}
+      >
+        <div className="flex items-center" style={{ gap: 16 }}>
+          <div style={{
+            width: 42,
+            height: 42,
+            borderRadius: 12,
+            flexShrink: 0,
+            background: 'linear-gradient(135deg, #1a2744, #2d4a8a)',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: 'Anuphan, sans-serif',
+            fontWeight: 700,
+            boxShadow: '0 4px 14px rgba(26,39,68,0.28)',
+          }}>D</div>
+          <div>
+            <h1 style={{ margin: 0, fontFamily: 'Anuphan, sans-serif', fontSize: 20, lineHeight: 1.2, color: '#1e293b' }}>
+              ทำเนียบคณะกรรมการ
+            </h1>
+            <p style={{ margin: '2px 0 0', fontFamily: 'Anuphan, sans-serif', fontSize: 13.5, color: '#94a3b8' }}>
+              {filteredMembers.length} จาก {members.length} คน
+            </p>
+          </div>
         </div>
 
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div className="flex flex-wrap md:ml-auto" style={{ gap: 10, alignItems: 'center' }}>
           <input
             value={search}
             onChange={event => setSearch(event.target.value)}
             placeholder="ค้นหาชื่อ ตำแหน่ง จังหวัด อีเมล..."
-            style={{ width: 240, padding: '10px 14px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', background: '#f8fafc', color: '#1e293b', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }}
+            className="w-full md:w-[240px]"
+            style={{ padding: '10px 14px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', background: '#f8fafc', color: '#1e293b', fontFamily: 'Anuphan, sans-serif', fontSize: 14, minWidth: 0 }}
           />
           <button
             onClick={() => { setAiSearchOpen(true); setAiSearchError(null); setTimeout(() => aiSearchInputRef.current?.focus(), 80) }}
@@ -523,7 +528,8 @@ export default function DirectoryPage() {
           <select
             value={committeeId}
             onChange={event => setCommitteeId(event.target.value)}
-            style={{ width: 220, padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', background: '#fff', color: '#1e293b', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }}
+            className="w-full md:w-[220px]"
+            style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', background: '#fff', color: '#1e293b', fontFamily: 'Anuphan, sans-serif', fontSize: 14, minWidth: 0 }}
           >
             <option value="all">ทุกคณะกรรมการ</option>
             {committees.map(committee => (
