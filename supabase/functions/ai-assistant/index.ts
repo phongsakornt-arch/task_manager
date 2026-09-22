@@ -31,12 +31,14 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'search_tasks',
-      description: 'ค้นหางานในระบบจากคำค้นในชื่อ/รายละเอียด หรือกรองตามสถานะ',
+      description: 'ค้นหางานในระบบจากคำค้นในชื่อ/รายละเอียด, กรองตามสถานะ, และ/หรือช่วงวันที่ครบกำหนด — ถ้าผู้ใช้ถามถึงช่วงเวลา (เช่น "สัปดาห์นี้", "เดือนนี้") ต้องคำนวณ dateFrom/dateTo เป็น YYYY-MM-DD จากวันที่วันนี้เองแล้วส่งมาด้วยเสมอ ห้ามเรียกแบบไม่ระบุช่วงวันที่แล้วเดาเอาเองว่าอันไหนอยู่ในช่วงนั้น',
       parameters: {
         type: 'object',
         properties: {
-          query: { type: 'string', description: 'คำค้นหา เว้นว่างได้ถ้าจะกรองแค่สถานะ' },
+          query: { type: 'string', description: 'คำค้นหา เว้นว่างได้ถ้าจะกรองแค่สถานะ/วันที่' },
           status: { type: 'string', enum: ['open', 'done', 'overdue', 'all'], description: 'กรองตามสถานะงาน default all' },
+          dateFrom: { type: 'string', description: 'YYYY-MM-DD เริ่มช่วงวันที่ครบกำหนด (รวมวันนี้)' },
+          dateTo: { type: 'string', description: 'YYYY-MM-DD สิ้นสุดช่วงวันที่ครบกำหนด' },
         },
       },
     },
@@ -108,12 +110,21 @@ count เป็น 0 ค่อยบอกผู้ใช้ว่าไม่�
 แล้ว" เด็ดขาด ให้บอกว่า "เตรียมข้อมูลไว้ให้แล้ว กดยืนยันด้านล่างได้เลย"`
 }
 
-async function execSearchTasks(supabase: SupabaseClient, args: { query?: string; status?: string }) {
-  let q = supabase.from('tasks').select('id, title, section_id, start_date, end_date, completed, sections(title)').eq('deleted', false).limit(15)
+async function execSearchTasks(supabase: SupabaseClient, args: { query?: string; status?: string; dateFrom?: string; dateTo?: string }) {
+  let q = supabase.from('tasks').select('id, title, section_id, start_date, end_date, completed, sections(title)').eq('deleted', false)
   if (args.query?.trim()) q = q.or(`title.ilike.%${args.query.trim()}%,description.ilike.%${args.query.trim()}%`)
   if (args.status === 'open') q = q.eq('completed', false)
   else if (args.status === 'done') q = q.eq('completed', true)
   else if (args.status === 'overdue') q = q.eq('completed', false).lt('end_date', todayStr())
+  if (args.dateFrom && args.dateTo) {
+    // "วันครบกำหนด" ของงาน = end_date ถ้ามี ไม่งั้นใช้ start_date (แบบเดียวกับ
+    // view pending_tasks) — กรองว่าวันนั้นตกอยู่ในช่วง [dateFrom, dateTo]
+    q = q.or(
+      `and(end_date.gte.${args.dateFrom},end_date.lte.${args.dateTo}),`
+      + `and(end_date.is.null,start_date.gte.${args.dateFrom},start_date.lte.${args.dateTo})`,
+    )
+  }
+  q = q.order('start_date', { ascending: true, nullsFirst: false }).limit(20)
   const { data, error } = await q
   if (error) return { error: error.message }
   return {
