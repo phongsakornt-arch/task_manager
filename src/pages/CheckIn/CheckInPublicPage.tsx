@@ -9,7 +9,7 @@ type PublicMeeting = {
 }
 type PublicMember = { id: string; name_th: string; nickname?: string | null }
 type PublicResponse = { member_id: string; status: 'going' | 'leave'; attend_mode?: 'onsite' | 'online' | null }
-type PublicCheckinData = { success: boolean; meeting: PublicMeeting; members: PublicMember[]; responses: PublicResponse[] }
+type PublicCheckinData = { success: boolean; meeting: PublicMeeting; members: PublicMember[]; allMembers: PublicMember[]; responses: PublicResponse[] }
 
 const NAVY = '#1a2744'
 const GOLD = '#c9a84c'
@@ -36,7 +36,10 @@ export default function CheckInPublicPage() {
   const [data, setData] = useState<PublicCheckinData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedMember, setSelectedMember] = useState('')
+  const [search, setSearch] = useState('')
+  const [selectedId, setSelectedId] = useState('')
+  const [selectedLabel, setSelectedLabel] = useState('')
+  const [selectedIsNew, setSelectedIsNew] = useState(false)
   const [saving, setSaving] = useState('')
   const [justSaved, setJustSaved] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -58,43 +61,77 @@ export default function CheckInPublicPage() {
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [loadData])
 
+  const allMemberById = useMemo(() => {
+    const map: Record<string, PublicMember> = {}
+    for (const m of data?.allMembers ?? []) map[m.id] = m
+    return map
+  }, [data])
+
   const respByMember = useMemo(() => {
     const map: Record<string, 'going' | 'leave'> = {}
     for (const r of data?.responses ?? []) map[r.member_id] = r.status
     return map
   }, [data])
-  const modeByMember = useMemo(() => {
-    const map: Record<string, string | null | undefined> = {}
-    for (const r of data?.responses ?? []) map[r.member_id] = r.attend_mode
-    return map
-  }, [data])
-
   const groups = useMemo(() => {
     const going: PublicMember[] = [], goingOnsite: PublicMember[] = [], goingOnline: PublicMember[] = []
-    const leave: PublicMember[] = [], pending: PublicMember[] = []
-    for (const m of data?.members ?? []) {
-      const s = respByMember[m.id]
-      if (s === 'going') {
-        going.push(m)
-        if (modeByMember[m.id] === 'online') goingOnline.push(m); else goingOnsite.push(m)
-      } else if (s === 'leave') leave.push(m)
-      else pending.push(m)
+    const leave: PublicMember[] = []
+    for (const r of data?.responses ?? []) {
+      const member = allMemberById[r.member_id]
+      if (!member) continue
+      if (r.status === 'going') {
+        going.push(member)
+        if (r.attend_mode === 'online') goingOnline.push(member); else goingOnsite.push(member)
+      } else if (r.status === 'leave') leave.push(member)
     }
+    // "ยังไม่ตอบ" = เฉพาะรายชื่อที่แอดมินเลือกไว้ล่วงหน้าและยังไม่ตอบ — ไม่รวมทั้งองค์กร
+    const pending = (data?.members ?? []).filter(m => !respByMember[m.id])
     return { going, goingOnsite, goingOnline, leave, pending }
-  }, [data, respByMember, modeByMember])
+  }, [data, allMemberById, respByMember])
+
+  const filteredMembers = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const list = data?.allMembers ?? []
+    if (!q) return list
+    return list.filter(m => `${m.name_th} ${m.nickname ?? ''}`.toLowerCase().includes(q))
+  }, [data, search])
+
+  function pick(member: PublicMember) {
+    setSelectedId(member.id)
+    setSelectedLabel(displayName(member))
+    setSelectedIsNew(false)
+    setSearch('')
+  }
+  function pickNew() {
+    const name = search.trim()
+    if (!name) return
+    setSelectedId('')
+    setSelectedLabel(name)
+    setSelectedIsNew(true)
+    setSearch('')
+  }
+  function changeSelection() {
+    setSelectedId(''); setSelectedLabel(''); setSelectedIsNew(false); setSearch('')
+  }
 
   async function submit(status: 'going' | 'leave', attendMode?: 'onsite' | 'online') {
-    if (!selectedMember || saving) return
+    if ((!selectedId && !selectedIsNew) || saving) return
     const key = attendMode ? `${status}-${attendMode}` : status
     setSaving(key)
-    const { error: e } = await supabase.functions.invoke('meeting-checkin-submit', {
-      body: { code, memberId: selectedMember, status, attendMode: attendMode ?? null },
+    const { data: r, error: e } = await supabase.functions.invoke<{ success: boolean; memberId?: string }>('meeting-checkin-submit', {
+      body: selectedIsNew
+        ? { code, newName: selectedLabel, status, attendMode: attendMode ?? null }
+        : { code, memberId: selectedId, status, attendMode: attendMode ?? null },
     })
     setSaving('')
-    if (!e) { setJustSaved(true); setTimeout(() => setJustSaved(false), 2200); loadData(true) }
+    if (!e && r?.memberId) {
+      // ชื่อใหม่ถูกสร้างแล้ว — ผูกไอดีไว้กันสร้างซ้ำถ้ากดตอบอีกครั้ง (เช่น เปลี่ยนใจจากเข้าร่วมเป็นลา)
+      if (selectedIsNew) { setSelectedId(r.memberId); setSelectedIsNew(false) }
+      setJustSaved(true); setTimeout(() => setJustSaved(false), 2200); loadData(true)
+    }
   }
 
   const meeting = data?.meeting
+  const hasSelection = !!selectedId || selectedIsNew
 
   return (
     <div style={{ minHeight: '100vh', background: '#eef2f7', fontFamily: FONT, display: 'flex', flexDirection: 'column' }}>
@@ -140,29 +177,58 @@ export default function CheckInPublicPage() {
 
               <div style={{ padding: '0 20px 20px', borderTop: '1px solid #f1f5f9', paddingTop: 16 }}>
                 <label style={{ display: 'block', fontSize: 13, color: '#64748b', marginBottom: 8, fontFamily: FONT }}>ฉันคือ</label>
-                <select
-                  value={selectedMember}
-                  onChange={e => setSelectedMember(e.target.value)}
-                  style={{ width: '100%', height: 44, padding: '0 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', background: '#f8fafc', fontFamily: FONT, fontSize: 14.5, color: '#1e293b', outline: 'none', marginBottom: 12 }}
-                >
-                  <option value="">เลือกชื่อของคุณ...</option>
-                  {(data?.members ?? []).map(m => (
-                    <option key={m.id} value={m.id}>{displayName(m)}{respByMember[m.id] ? '  ✓ ตอบแล้ว' : ''}</option>
-                  ))}
-                </select>
+
+                {hasSelection ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 14px', borderRadius: 12, border: '1.5px solid #e4e8f2', background: '#f8fafc', marginBottom: 12 }}>
+                    <span style={{ fontFamily: FONT, fontWeight: 700, fontSize: 14.5, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {selectedLabel}{selectedId && respByMember[selectedId] ? '  ✓ ตอบแล้ว' : ''}
+                    </span>
+                    <button type="button" onClick={changeSelection} style={{ flexShrink: 0, border: 'none', background: 'none', color: '#1d4ed8', fontFamily: FONT, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>เปลี่ยน</button>
+                  </div>
+                ) : (
+                  <div style={{ marginBottom: 12 }}>
+                    <input
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      placeholder="พิมพ์ชื่อหรือชื่อเล่นของคุณ..."
+                      style={{ width: '100%', height: 44, padding: '0 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', background: '#f8fafc', fontFamily: FONT, fontSize: 14.5, color: '#1e293b', outline: 'none' }}
+                    />
+                    <div style={{ maxHeight: 200, overflowY: 'auto', marginTop: 6, borderRadius: 12, border: filteredMembers.length ? '1px solid #f1f5f9' : 'none' }}>
+                      {filteredMembers.map(m => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => pick(m)}
+                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 12px', border: 'none', borderBottom: '1px solid #f8fafc', background: '#fff', fontFamily: FONT, fontSize: 14, color: '#334155', cursor: 'pointer' }}
+                        >
+                          {displayName(m)}{respByMember[m.id] ? '  ✓ ตอบแล้ว' : ''}
+                        </button>
+                      ))}
+                      {search.trim() && filteredMembers.length === 0 && (
+                        <button
+                          type="button"
+                          onClick={pickNew}
+                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 12px', border: 'none', background: '#eff6ff', fontFamily: FONT, fontSize: 13.5, fontWeight: 700, color: '#1d4ed8', cursor: 'pointer', borderRadius: 12 }}
+                        >
+                          + เพิ่มชื่อ "{search.trim()}" เป็นชื่อใหม่
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {meeting.format === 'hybrid' ? (
                   <div style={{ display: 'grid', gap: 8 }}>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <ActionButton disabled={!selectedMember || !!saving} loading={saving === 'going-onsite'} onClick={() => submit('going', 'onsite')} tone="green">🏢 เข้าร่วม (ที่สถานที่)</ActionButton>
-                      <ActionButton disabled={!selectedMember || !!saving} loading={saving === 'going-online'} onClick={() => submit('going', 'online')} tone="green">💻 เข้าร่วม (ออนไลน์)</ActionButton>
+                      <ActionButton disabled={!hasSelection || !!saving} loading={saving === 'going-onsite'} onClick={() => submit('going', 'onsite')} tone="blue">🏢 เข้าร่วม (ที่สถานที่)</ActionButton>
+                      <ActionButton disabled={!hasSelection || !!saving} loading={saving === 'going-online'} onClick={() => submit('going', 'online')} tone="green">💻 เข้าร่วม (ออนไลน์)</ActionButton>
                     </div>
-                    <ActionButton disabled={!selectedMember || !!saving} loading={saving === 'leave'} onClick={() => submit('leave')} tone="red" full>✕ ลา</ActionButton>
+                    <ActionButton disabled={!hasSelection || !!saving} loading={saving === 'leave'} onClick={() => submit('leave')} tone="red" full>✕ ลา</ActionButton>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <ActionButton disabled={!selectedMember || !!saving} loading={saving === 'going'} onClick={() => submit('going')} tone="green">✓ เข้าร่วม</ActionButton>
-                    <ActionButton disabled={!selectedMember || !!saving} loading={saving === 'leave'} onClick={() => submit('leave')} tone="red">✕ ลา</ActionButton>
+                    <ActionButton disabled={!hasSelection || !!saving} loading={saving === 'going'} onClick={() => submit('going')} tone="green">✓ เข้าร่วม</ActionButton>
+                    <ActionButton disabled={!hasSelection || !!saving} loading={saving === 'leave'} onClick={() => submit('leave')} tone="red">✕ ลา</ActionButton>
                   </div>
                 )}
                 {justSaved && <p style={{ textAlign: 'center', fontSize: 13.5, color: '#047857', marginTop: 10, fontWeight: 700 }}>บันทึกแล้ว ขอบคุณค่ะ</p>}
@@ -176,7 +242,7 @@ export default function CheckInPublicPage() {
 
                 {meeting.format === 'hybrid' ? (
                   <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-                    <Stat n={groups.goingOnsite.length} label="🏢 Onsite" tone="green" />
+                    <Stat n={groups.goingOnsite.length} label="🏢 Onsite" tone="blue" />
                     <Stat n={groups.goingOnline.length} label="💻 Online" tone="green" />
                     <Stat n={groups.leave.length} label="ลา" tone="red" />
                     <Stat n={groups.pending.length} label="ยังไม่ตอบ" tone="gray" />
@@ -191,7 +257,7 @@ export default function CheckInPublicPage() {
 
                 {meeting.format === 'hybrid' ? (
                   <>
-                    <NameGroup title="เข้าร่วม (ที่สถานที่)" tone="green" people={groups.goingOnsite} />
+                    <NameGroup title="เข้าร่วม (ที่สถานที่)" tone="blue" people={groups.goingOnsite} />
                     <NameGroup title="เข้าร่วม (ออนไลน์)" tone="green" people={groups.goingOnline} />
                   </>
                 ) : (
@@ -212,8 +278,13 @@ function InfoRow({ icon, text }: { icon: string; text: string }) {
   return <div style={{ fontSize: 13.5, color: '#475569', display: 'flex', alignItems: 'center', gap: 8 }}><span>{icon}</span>{text}</div>
 }
 
-function ActionButton({ children, onClick, disabled, loading, tone, full }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; loading?: boolean; tone: 'green' | 'red'; full?: boolean }) {
-  const colors = tone === 'green' ? { bg: '#f0fdf4', color: '#047857', border: '#bbf7d0' } : { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' }
+const ACTION_TONE: Record<string, { bg: string; color: string; border: string }> = {
+  green: { bg: '#f0fdf4', color: '#047857', border: '#bbf7d0' },
+  blue: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+  red: { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+}
+function ActionButton({ children, onClick, disabled, loading, tone, full }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; loading?: boolean; tone: 'green' | 'blue' | 'red'; full?: boolean }) {
+  const colors = ACTION_TONE[tone]
   return (
     <button
       type="button"
@@ -233,6 +304,7 @@ function ActionButton({ children, onClick, disabled, loading, tone, full }: { ch
 
 const STAT_TONE: Record<string, { bg: string; color: string }> = {
   green: { bg: '#f0fdf4', color: '#047857' },
+  blue: { bg: '#eff6ff', color: '#1d4ed8' },
   red: { bg: '#fef2f2', color: '#b91c1c' },
   gray: { bg: '#f1f5f9', color: '#64748b' },
 }
@@ -246,7 +318,7 @@ function Stat({ n, label, tone }: { n: number; label: string; tone: string }) {
   )
 }
 
-const DOT_TONE: Record<string, string> = { green: '#059669', red: '#dc2626', gray: '#94a3b8' }
+const DOT_TONE: Record<string, string> = { green: '#059669', blue: '#1d4ed8', red: '#dc2626', gray: '#94a3b8' }
 function NameGroup({ title, tone, people, muted }: { title: string; tone: string; people: PublicMember[]; muted?: boolean }) {
   if (people.length === 0) return null
   return (

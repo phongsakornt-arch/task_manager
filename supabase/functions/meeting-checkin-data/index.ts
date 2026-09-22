@@ -32,6 +32,13 @@ Deno.serve(async (req) => {
           .order('name_th')
       : { data: [] }
 
+    // เต็มรายชื่อกรรมการทั้งหมด — ใช้สำหรับค้นหา/เช็คชื่อคนที่ไม่ได้ถูกเลือกไว้ล่วงหน้า
+    const { data: allMembers } = await supabase
+      .from('members')
+      .select('id, name_th, nickname')
+      .eq('active', true)
+      .order('name_th')
+
     const { data: responses } = await supabase
       .from('meeting_responses')
       .select('member_id, status, attend_mode')
@@ -41,6 +48,7 @@ Deno.serve(async (req) => {
       success: true,
       meeting,
       members: members ?? [],
+      allMembers: allMembers ?? [],
       responses: responses ?? [],
     })
   } catch (error) {
