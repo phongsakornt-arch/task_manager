@@ -742,30 +742,22 @@ export default function TaskModal({ task, defaultSectionId, defaultParentTaskId,
               <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 12 }}>
                 <Field label="Section"><select value={sectionId} onChange={event => setSectionId(event.target.value)} style={inputStyle}>{sections.map(section => <option key={section.id} value={section.id}>{section.title}</option>)}</select></Field>
                 <Field label="ประเภทงาน"><select value={taskTypeId} onChange={event => setTaskTypeId(event.target.value)} style={inputStyle}><option value="">เลือกประเภทงาน</option>{taskTypes.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}</select></Field>
-                <Field label="วันเริ่ม">
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <input type="date" value={startDate} onChange={event => setStartDate(event.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
-                    {startDate && <button type="button" onClick={() => setStartDate('')} title="ลบวันที่" style={clearFieldButtonStyle}>×</button>}
-                  </div>
-                </Field>
-                <Field label="วันจบ">
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <input type="date" value={endDate} onChange={event => setEndDate(event.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
-                    {endDate && <button type="button" onClick={() => setEndDate('')} title="ลบวันที่" style={clearFieldButtonStyle}>×</button>}
-                  </div>
-                </Field>
-                <Field label="เวลาเริ่ม">
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <input value={startTime} onChange={event => setStartTime(event.target.value)} onBlur={event => setStartTime(normalizeTime(event.target.value))} placeholder="09:00" style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
-                    {startTime && <button type="button" onClick={() => setStartTime('')} title="ลบเวลา" style={clearFieldButtonStyle}>×</button>}
-                  </div>
-                </Field>
-                <Field label="เวลาจบ">
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <input value={endTime} onChange={event => setEndTime(event.target.value)} onBlur={event => setEndTime(normalizeTime(event.target.value))} placeholder="17:00" style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
-                    {endTime && <button type="button" onClick={() => setEndTime('')} title="ลบเวลา" style={clearFieldButtonStyle}>×</button>}
-                  </div>
-                </Field>
+                <FieldBox label="วันเริ่ม">
+                  <input type="date" value={startDate} onChange={event => setStartDate(event.target.value)} style={inputStyle} />
+                  {startDate && <button type="button" onClick={() => setStartDate('')} style={clearFieldLinkStyle}>✕ ลบวันที่</button>}
+                </FieldBox>
+                <FieldBox label="วันจบ">
+                  <input type="date" value={endDate} onChange={event => setEndDate(event.target.value)} style={inputStyle} />
+                  {endDate && <button type="button" onClick={() => setEndDate('')} style={clearFieldLinkStyle}>✕ ลบวันที่</button>}
+                </FieldBox>
+                <FieldBox label="เวลาเริ่ม">
+                  <input value={startTime} onChange={event => setStartTime(event.target.value)} onBlur={event => setStartTime(normalizeTime(event.target.value))} placeholder="09:00" style={inputStyle} />
+                  {startTime && <button type="button" onClick={() => setStartTime('')} style={clearFieldLinkStyle}>✕ ลบเวลา</button>}
+                </FieldBox>
+                <FieldBox label="เวลาจบ">
+                  <input value={endTime} onChange={event => setEndTime(event.target.value)} onBlur={event => setEndTime(normalizeTime(event.target.value))} placeholder="17:00" style={inputStyle} />
+                  {endTime && <button type="button" onClick={() => setEndTime('')} style={clearFieldLinkStyle}>✕ ลบเวลา</button>}
+                </FieldBox>
               </div>
               <Field label="รายละเอียด"><textarea value={description} onChange={event => setDescription(event.target.value)} rows={4} placeholder="เพิ่มรายละเอียด..." style={{ ...inputStyle, minHeight: 110, paddingTop: 12, resize: 'vertical' }} /></Field>
 
@@ -898,6 +890,18 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label style={{ display: 'grid', gap: 7, color: '#64748b', fontWeight: 800, fontSize: 13 }}>{label}{children}</label>
 }
 
+// เหมือน Field แต่ใช้ <div> แทน <label> — ใช้กับฟิลด์ที่มีปุ่มอื่นซ้อนอยู่ข้างใน (เช่นปุ่มลบ)
+// เพราะ label ที่ครอบ input+button ไว้ด้วยกัน บางเบราว์เซอร์มือถือจะส่งต่อ tap ไปเปิด
+// input ให้เองแม้จะแตะปุ่มอื่นอยู่ก็ตาม
+function FieldBox({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div style={{ display: 'grid', gap: 7 }}>
+      <span style={{ color: '#64748b', fontWeight: 800, fontSize: 13 }}>{label}</span>
+      {children}
+    </div>
+  )
+}
+
 function Section({ title, purple, children }: { title: string; purple?: boolean; children: ReactNode }) {
   return <section style={{ ...sectionStyle, borderColor: purple ? '#ddd6fe' : '#e2e8f0', background: purple ? '#faf5ff' : '#fff' }}><h3 style={{ ...sectionTitleStyle, color: purple ? '#6d28d9' : '#334155' }}>{title}</h3>{children}</section>
 }
@@ -993,7 +997,7 @@ const headerStyle: CSSProperties = { padding: '22px 26px 18px', borderBottom: '1
 const titleStyle: CSSProperties = { margin: 0, fontFamily: FONT, fontSize: 25, lineHeight: 1.25, color: '#0f172a' }
 const closeButtonStyle: CSSProperties = { width: 38, height: 38, border: 'none', borderRadius: 999, background: '#f8fafc', color: '#94a3b8', cursor: 'pointer', fontSize: 20, lineHeight: 1 }
 const inputStyle: CSSProperties = { width: '100%', minHeight: 44, border: '1.5px solid #dbe4ee', borderRadius: 12, background: '#fff', color: '#0f172a', outline: 'none', padding: '0 12px', fontFamily: FONT, fontSize: 14 }
-const clearFieldButtonStyle: CSSProperties = { flexShrink: 0, width: 40, minHeight: 44, border: '1.5px solid #fecaca', borderRadius: 12, background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontSize: 16, fontWeight: 800 }
+const clearFieldLinkStyle: CSSProperties = { justifySelf: 'start', border: 'none', background: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, padding: '2px 0', fontFamily: FONT }
 const sectionStyle: CSSProperties = { border: '1px solid #e2e8f0', borderRadius: 16, background: '#fff', padding: 16 }
 const sectionTitleStyle: CSSProperties = { margin: '0 0 10px', fontFamily: FONT, fontSize: 14, fontWeight: 900, color: '#334155' }
 const subLabelStyle: CSSProperties = { margin: '3px 0 8px', color: '#64748b', fontSize: 12.5, fontWeight: 900 }
