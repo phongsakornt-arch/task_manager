@@ -29,6 +29,12 @@ export function canManageDirectory(role?: UserRole | null) {
   return role === 'admin' || role === 'super_admin'
 }
 
+// ─── Meeting check-in ─────────────────────────────────────────────────────────
+/** editor, admin, super_admin สร้าง/แก้ไข/ลบการประชุมได้ */
+export function canEditMeetings(role?: UserRole | null) {
+  return canEditTasks(role)
+}
+
 // ─── Todo ─────────────────────────────────────────────────────────────────────
 /** super_admin ดู Todo dashboard ของทุกคน */
 export function canViewTodoDashboard(role?: UserRole | null) {

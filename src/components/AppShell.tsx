@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
-import { canViewUsers, canManageSystem } from '../lib/permissions'
+import { canViewUsers, canManageSystem, canEditMeetings } from '../lib/permissions'
 
 const navItems = [
   { to: '/',          icon: '▦', label: 'Board' },
@@ -15,6 +15,7 @@ const navItems = [
 ]
 
 const adminNavItems = [
+  { to: '/meetings', icon: '✓', label: 'เช็คชื่อ' },
   { to: '/users', icon: 'U', label: 'Users' },
   { to: '/system', icon: 'S', label: 'System' },
 ]
@@ -24,6 +25,7 @@ export default function AppShell() {
   const navigate = useNavigate()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const visibleAdminItems = adminNavItems.filter(item => {
+    if (item.to === '/meetings') return canEditMeetings(user?.role)
     if (item.to === '/users') return canViewUsers(user?.role)
     if (item.to === '/system') return canManageSystem(user?.role)
     return false

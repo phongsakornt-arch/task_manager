@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { useAuthStore } from './stores/authStore'
-import { canViewUsers, canManageSystem } from './lib/permissions'
+import { canViewUsers, canManageSystem, canEditMeetings } from './lib/permissions'
 import type { UserRole } from './types'
 import AppShell from './components/AppShell'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -12,6 +12,7 @@ import BoardPage from './pages/Board/BoardPage'
 import AnnualPage from './pages/Annual/AnnualPage'
 import DirectoryPage from './pages/Directory/DirectoryPage'
 import ApprovalPublicPage from './pages/Approval/ApprovalPublicPage'
+import CheckInPublicPage from './pages/CheckIn/CheckInPublicPage'
 import TodoPage from './pages/Todo/TodoPage'
 import SystemPage from './pages/System/SystemPage'
 
@@ -23,6 +24,7 @@ const CalendarPage = lazy(() => import('./pages/Calendar/CalendarPage'))
 const BudgetPage = lazy(() => import('./pages/Budget/BudgetPage'))
 const ApprovalPage = lazy(() => import('./pages/Approval/ApprovalPage'))
 const UsersPage = lazy(() => import('./pages/Users/UsersPage'))
+const CheckInAdminPage = lazy(() => import('./pages/CheckIn/CheckInAdminPage'))
 
 function PageLoader() {
   return (
@@ -69,6 +71,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/approval/public" element={<ApprovalPublicPage />} />
+        <Route path="/checkin" element={<CheckInPublicPage />} />
         <Route path="/" element={<RequireAuth><AppShell /></RequireAuth>}>
           <Route index element={<BoardPage />} />
           <Route path="pending" element={<PendingPage />} />
@@ -78,6 +81,7 @@ export default function App() {
           <Route path="directory" element={<DirectoryPage />} />
           <Route path="approval" element={<ApprovalPage />} />
           <Route path="todo" element={<TodoPage />} />
+          <Route path="meetings" element={<RequireRole check={canEditMeetings}><CheckInAdminPage /></RequireRole>} />
           <Route path="users" element={<RequireRole check={canViewUsers}><UsersPage /></RequireRole>} />
           <Route path="system" element={<RequireRole check={canManageSystem}><SystemPage /></RequireRole>} />
         </Route>
