@@ -14,6 +14,7 @@ import { requireUser } from '../_shared/auth.ts'
 type ChatMessage = {
   role: 'system' | 'user' | 'assistant' | 'tool'
   content: string | null
+  reasoning?: string | null // gpt-oss models on Groq put chain-of-thought here, separate from content
   tool_calls?: ToolCall[]
   tool_call_id?: string
   name?: string
@@ -176,7 +177,7 @@ async function callChat(baseUrl: string, key: string, model: string, messages: C
   const res = await fetch(baseUrl, {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages, tools: TOOLS, tool_choice: 'auto', temperature: 0.2, max_tokens: 700 }),
+    body: JSON.stringify({ model, messages, tools: TOOLS, tool_choice: 'auto', temperature: 0.2, max_tokens: 1200 }),
   })
   const raw = await res.text()
   if (!res.ok) {
@@ -206,11 +207,13 @@ Deno.serve(async (req) => {
     // หรือ deprecate ไปแล้ว — เหมือนแพทเทิร์นที่ใช้ในฟังก์ชัน AI อื่นของระบบนี้
     const providers: { baseUrl: string; key: string; model: string }[] = []
     if (groqKey) {
-      // llama-3.3-70b-versatile / llama-3.1-8b-instant 404 บน account นี้แล้ว
-      // (Groq เปลี่ยน/ถอด model บ่อย) — ใช้ตัวเดียวกับที่ ai-task-parse ยืนยันว่าใช้ได้จริงก่อน
+      // model รุ่น llama เดิมทั้งหมด (llama-3.3-70b-versatile, llama-3.1-8b-instant,
+      // meta-llama/llama-4-scout-*) ถูกถอดออกจาก catalog ของ Groq ไปแล้ว — เช็คจาก
+      // GET /openai/v1/models ตรงๆ แล้วเลือกเฉพาะ model ที่มี "tools" ใน
+      // supported_features จริง (ทดสอบยืนยันแล้วว่า tool-calling ใช้ได้จริง)
       providers.push(
-        { baseUrl: 'https://api.groq.com/openai/v1/chat/completions', key: groqKey, model: 'meta-llama/llama-4-scout-17b-16e-instruct' },
-        { baseUrl: 'https://api.groq.com/openai/v1/chat/completions', key: groqKey, model: 'llama-3.3-70b-versatile' },
+        { baseUrl: 'https://api.groq.com/openai/v1/chat/completions', key: groqKey, model: 'openai/gpt-oss-120b' },
+        { baseUrl: 'https://api.groq.com/openai/v1/chat/completions', key: groqKey, model: 'openai/gpt-oss-20b' },
       )
     }
     if (openaiKey) providers.push({ baseUrl: 'https://api.openai.com/v1/chat/completions', key: openaiKey, model: 'gpt-4o-mini' })
@@ -238,7 +241,9 @@ Deno.serve(async (req) => {
       messages.push(assistantMsg)
 
       if (!assistantMsg.tool_calls?.length) {
-        return jsonResponse({ success: true, reply: assistantMsg.content ?? '', messages, proposedAction })
+        // gpt-oss models บางทีตอบจริงไปอยู่ที่ reasoning แทน content ถ้า content ว่าง
+        const reply = assistantMsg.content?.trim() ? assistantMsg.content : (assistantMsg.reasoning ?? '')
+        return jsonResponse({ success: true, reply, messages, proposedAction })
       }
 
       for (const call of assistantMsg.tool_calls) {

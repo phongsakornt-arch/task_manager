@@ -39,11 +39,8 @@ function parseJson(content: string) {
 
 // ── Groq (Llama Vision) — free tier, OpenAI-compatible ────
 async function callGroq(b64: string, mime: string, key: string) {
-  // Try models in order (scout is newest, 11b is fallback)
   const models = [
-    'meta-llama/llama-4-scout-17b-16e-instruct',
-    'llama-3.2-11b-vision-preview',
-    'llama-3.2-90b-vision-preview',
+    'qwen/qwen3.8-27b',
   ]
   let lastErr = 'Groq: ไม่พบ model ที่ใช้งานได้'
   for (const model of models) {

@@ -43,7 +43,7 @@ function parseJson(content: string) {
 }
 
 async function callGroq(prompt: string, key: string) {
-  const models = ['meta-llama/llama-4-scout-17b-16e-instruct', 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant']
+  const models = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b']
   let lastErr = 'Groq: ไม่พบ model'
   for (const model of models) {
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
