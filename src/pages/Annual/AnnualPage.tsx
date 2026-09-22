@@ -83,7 +83,8 @@ export default function AnnualPage() {
   const [taskTypeIds, setTaskTypeIds] = useState<string[]>([])
   const [status, setStatus] = useState<StatusFilter>('all')
   const [search, setSearch] = useState('')
-  const [filtersCollapsed, setFiltersCollapsed] = useState(false)
+  // เริ่มแบบย่อบนมือถือ (จอแคบกว่า md) เพื่อไม่ให้ตัวกรองเต็มจอบังเนื้อหา — บนจอใหญ่เริ่มแบบขยายตามเดิม
+  const [filtersCollapsed, setFiltersCollapsed] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 

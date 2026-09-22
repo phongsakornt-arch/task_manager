@@ -90,6 +90,8 @@ export default function DirectoryPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  // เริ่มแบบย่อบนมือถือ — แถบค้นหา/ตัวกรอง/ปุ่มจัดการกินพื้นที่มากบนจอเล็ก
+  const [controlsOpen, setControlsOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768)
   const [committeeId, setCommitteeId] = useState('all')
   const [modalMode, setModalMode] = useState<'add' | 'edit' | null>(null)
   const [editingMember, setEditingMember] = useState<DirectoryMember | null>(null)
@@ -504,9 +506,16 @@ export default function DirectoryPage() {
               {filteredMembers.length} จาก {members.length} คน
             </p>
           </div>
+          <button
+            onClick={() => setControlsOpen(v => !v)}
+            className="md:hidden"
+            style={{ marginLeft: 'auto', border: '1px solid #e4e8f2', borderRadius: 10, background: '#fff', color: '#1a2744', fontFamily: 'Anuphan, sans-serif', fontSize: 12.5, fontWeight: 700, padding: '7px 12px', cursor: 'pointer', flexShrink: 0 }}
+          >
+            {controlsOpen ? 'ซ่อนตัวกรอง ▲' : 'ค้นหา/ตัวกรอง ▼'}
+          </button>
         </div>
 
-        <div className="flex flex-wrap md:ml-auto" style={{ gap: 10, alignItems: 'center' }}>
+        <div className={`${controlsOpen ? 'flex' : 'hidden'} md:flex flex-wrap md:ml-auto`} style={{ gap: 10, alignItems: 'center' }}>
           <input
             value={search}
             onChange={event => setSearch(event.target.value)}

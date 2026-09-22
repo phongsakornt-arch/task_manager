@@ -726,7 +726,7 @@ export default function ApprovalPage() {
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '20px 24px' }}>
 
         {/* ── CATEGORY TABS ── */}
-        <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 14, background: '#e2e8f0', marginBottom: 16, width: 'fit-content' }}>
+        <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 14, background: '#e2e8f0', marginBottom: 16, width: 'fit-content', maxWidth: '100%', overflowX: 'auto' }}>
           {([
             { key: 'sign' as const, label: '📝 เอกสารเสนอเซ็น' },
             { key: 'disbursement' as const, label: '💵 เอกสารอนุมัติเบิกจ่าย' },

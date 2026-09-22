@@ -278,6 +278,8 @@ export default function BudgetPage() {
   const [search, setSearch] = useState('')
   const [budgetFilter, setBudgetFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
+  // เริ่มแบบย่อบนมือถือ (จอแคบกว่า md) — สรุป KPI + ตัวกรองกินพื้นที่มากบนจอเล็ก
+  const [toolsOpen, setToolsOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768)
   const [detailMode, setDetailMode] = useState<DetailMode>('compare')
   const [detailPopupOpen, setDetailPopupOpen] = useState(false)
   const [rightTab, setRightTab] = useState<RightTab>('overview')
@@ -1019,59 +1021,71 @@ export default function BudgetPage() {
         </div>
       </div>
 
-      {/* ── KPI STRIP ── */}
-      <div className="grid grid-cols-2 md:flex" style={{ gap: 10, padding: '10px 16px', background: '#fff', borderBottom: '1px solid #e4e8f2', flexShrink: 0 }}>
-        {metricCards.map(card => (
-          <div key={card.label} className="md:flex-1" style={{
-            borderRadius: 14, background: '#f8fafc', padding: '10px 14px',
-            border: '1px solid #e4eaf5',
-            display: 'flex', alignItems: 'center', gap: 10, minWidth: 0,
-          }}>
-            <span style={{ fontSize: 22 }}>{card.icon}</span>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontFamily: 'Anuphan, sans-serif', fontSize: 11.5, color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>{card.label}</div>
-              <div style={{ fontFamily: 'Anuphan, sans-serif', fontSize: 16, fontWeight: 900, color: card.color, marginTop: 1, whiteSpace: 'nowrap' }}>
-                {compactMoney(card.value)}
+      {/* Mobile-only toggle to collapse the KPI strip + filter bar and reclaim screen space */}
+      <button
+        onClick={() => setToolsOpen(v => !v)}
+        className="md:hidden"
+        style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', border: 'none', borderBottom: '1px solid #e4e8f2', background: '#fff', padding: '9px 16px', fontFamily: 'Anuphan, sans-serif', fontSize: 13, fontWeight: 700, color: '#1a2744', flexShrink: 0, cursor: 'pointer' }}
+      >
+        สรุปงบ + ตัวกรอง
+        <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>{toolsOpen ? 'ซ่อน ▲' : 'แสดง ▼'}</span>
+      </button>
+
+      <div className={toolsOpen ? 'block' : 'hidden md:block'}>
+        {/* ── KPI STRIP ── */}
+        <div className="grid grid-cols-2 md:flex" style={{ gap: 10, padding: '10px 16px', background: '#fff', borderBottom: '1px solid #e4e8f2' }}>
+          {metricCards.map(card => (
+            <div key={card.label} className="md:flex-1" style={{
+              borderRadius: 14, background: '#f8fafc', padding: '10px 14px',
+              border: '1px solid #e4eaf5',
+              display: 'flex', alignItems: 'center', gap: 10, minWidth: 0,
+            }}>
+              <span style={{ fontSize: 22 }}>{card.icon}</span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: 'Anuphan, sans-serif', fontSize: 11.5, color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>{card.label}</div>
+                <div style={{ fontFamily: 'Anuphan, sans-serif', fontSize: 16, fontWeight: 900, color: card.color, marginTop: 1, whiteSpace: 'nowrap' }}>
+                  {compactMoney(card.value)}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      {/* ── FILTER BAR ── always visible, clean row */}
-      <div style={{
-        display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10,
-        padding: '8px 16px', background: '#fff',
-        borderBottom: '1px solid #e4e8f2', flexShrink: 0,
-      }}>
-        <span style={{ fontFamily: 'Anuphan, sans-serif', fontSize: 13, color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>กรองโดย:</span>
-        <select
-          value={budgetFilter}
-          onChange={e => setBudgetFilter(e.target.value)}
-          style={{ height: 36, paddingLeft: 10, paddingRight: 28, borderRadius: 10, border: '1.5px solid #dbe4f0', background: '#f8fafc', fontFamily: 'Anuphan, sans-serif', fontSize: 13, color: '#1e293b', outline: 'none', cursor: 'pointer' }}
-        >
-          <option value="">ทุกรหัสงบ</option>
-          {budgetFilters.map(item => <option key={item} value={item}>{item}</option>)}
-        </select>
-        <select
-          value={typeFilter}
-          onChange={e => setTypeFilter(e.target.value)}
-          style={{ height: 36, paddingLeft: 10, paddingRight: 28, borderRadius: 10, border: '1.5px solid #dbe4f0', background: '#f8fafc', fontFamily: 'Anuphan, sans-serif', fontSize: 13, color: '#1e293b', outline: 'none', cursor: 'pointer' }}
-        >
-          <option value="">ทุกประเภทโครงการ</option>
-          {projectTypes.map(item => <option key={item} value={item}>{item}</option>)}
-        </select>
-        {(budgetFilter || typeFilter || search) && (
-          <button
-            onClick={() => { setSearch(''); setBudgetFilter(''); setTypeFilter('') }}
-            style={{ height: 36, padding: '0 12px', borderRadius: 10, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontFamily: 'Anuphan, sans-serif', fontSize: 12.5, cursor: 'pointer', fontWeight: 700 }}
+        {/* ── FILTER BAR ── */}
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10,
+          padding: '8px 16px', background: '#fff',
+          borderBottom: '1px solid #e4e8f2',
+        }}>
+          <span style={{ fontFamily: 'Anuphan, sans-serif', fontSize: 13, color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>กรองโดย:</span>
+          <select
+            value={budgetFilter}
+            onChange={e => setBudgetFilter(e.target.value)}
+            style={{ height: 36, paddingLeft: 10, paddingRight: 28, borderRadius: 10, border: '1.5px solid #dbe4f0', background: '#f8fafc', fontFamily: 'Anuphan, sans-serif', fontSize: 13, color: '#1e293b', outline: 'none', cursor: 'pointer' }}
           >
-            ล้างตัวกรอง ×
-          </button>
-        )}
-        <span style={{ marginLeft: 'auto', fontFamily: 'Anuphan, sans-serif', fontSize: 12.5, color: '#94a3b8' }}>
-          แสดง {filteredProjects.length} จาก {projects.length} โครงการ
-        </span>
+            <option value="">ทุกรหัสงบ</option>
+            {budgetFilters.map(item => <option key={item} value={item}>{item}</option>)}
+          </select>
+          <select
+            value={typeFilter}
+            onChange={e => setTypeFilter(e.target.value)}
+            style={{ height: 36, paddingLeft: 10, paddingRight: 28, borderRadius: 10, border: '1.5px solid #dbe4f0', background: '#f8fafc', fontFamily: 'Anuphan, sans-serif', fontSize: 13, color: '#1e293b', outline: 'none', cursor: 'pointer' }}
+          >
+            <option value="">ทุกประเภทโครงการ</option>
+            {projectTypes.map(item => <option key={item} value={item}>{item}</option>)}
+          </select>
+          {(budgetFilter || typeFilter || search) && (
+            <button
+              onClick={() => { setSearch(''); setBudgetFilter(''); setTypeFilter('') }}
+              style={{ height: 36, padding: '0 12px', borderRadius: 10, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontFamily: 'Anuphan, sans-serif', fontSize: 12.5, cursor: 'pointer', fontWeight: 700 }}
+            >
+              ล้างตัวกรอง ×
+            </button>
+          )}
+          <span style={{ marginLeft: 'auto', fontFamily: 'Anuphan, sans-serif', fontSize: 12.5, color: '#94a3b8' }}>
+            แสดง {filteredProjects.length} จาก {projects.length} โครงการ
+          </span>
+        </div>
       </div>
 
       {/* ── ERROR / LOADING ── */}
