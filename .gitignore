@@ -1,0 +1,52 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Secrets — never commit real credentials
+.env
+.env.*
+!.env.example
+
+# Local Claude Code tooling config, not app code
+.claude/
+
+# Supabase CLI local cache (machine-specific, not project config)
+supabase/.temp/
+
+# Local backup archives
+*.rar
+*.zip
+
+# Legacy data exports / one-off migration artifacts with real business data —
+# not part of the deployable app, and risky to publish in a public repo
+YEC Task Manager - 📋 Tasks UPDATE 12-5-69.csv
+old data/
+migrate_drive_urls.sql
+
+# Contains real committee-member PII and, in the tasks-import file, literal
+# plaintext passwords used to seed real user accounts (crypt('...', ...)) —
+# must never be published. Schema/table structure lives in the other
+# migrations; only this one-off legacy data seed is excluded.
+supabase/migrations/20260508000006_import_old_non_task_data.sql
+supabase/migrations/20260508000007_import_old_tasks.sql
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

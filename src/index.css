@@ -1,0 +1,108 @@
+@import url('https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+:root {
+  --navy: #1a2744;
+  --gold: #c9a84c;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: 'Anuphan', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 15px;
+  color: #1e293b;
+  background: #eef0f7;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Anuphan', 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Show drag handle when hovering task card */
+.task-card:hover .drag-handle {
+  opacity: 1 !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.22); }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.yec-calendar {
+  height: 100%;
+  min-height: 0;
+  padding: 14px;
+  font-family: 'Anuphan', 'Helvetica Neue', Arial, sans-serif;
+}
+
+.yec-calendar .rbc-calendar {
+  height: 100%;
+  min-height: 520px;
+}
+
+.yec-calendar .rbc-toolbar {
+  margin-bottom: 12px;
+  gap: 8px;
+}
+
+.yec-calendar .rbc-toolbar button {
+  border-color: #e4e8f2;
+  color: #334155;
+  border-radius: 8px;
+}
+
+.yec-calendar .rbc-toolbar button.rbc-active {
+  background: #1a2744;
+  color: #fff;
+  border-color: #1a2744;
+  box-shadow: none;
+}
+
+.yec-calendar .rbc-toolbar-label {
+  font-family: 'Anuphan', 'Helvetica Neue', Arial, sans-serif;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.yec-calendar .rbc-month-view,
+.yec-calendar .rbc-time-view,
+.yec-calendar .rbc-agenda-view {
+  border-color: #e4e8f2;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.yec-calendar .rbc-header,
+.yec-calendar .rbc-month-row + .rbc-month-row,
+.yec-calendar .rbc-day-bg + .rbc-day-bg {
+  border-color: #e4e8f2;
+}
+
+.yec-calendar .rbc-today {
+  background: #fffbeb;
+}
+
+.yec-calendar .rbc-off-range-bg {
+  background: #f8fafc;
+}
