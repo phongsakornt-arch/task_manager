@@ -250,6 +250,7 @@ export default function KanbanBoard() {
   const [dueDate, setDueDate] = useState('')
   const [saving, setSaving] = useState(false)
   const [editingCard, setEditingCard] = useState<KanbanCard | null>(null)
+  const [formOpen, setFormOpen] = useState(true)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -379,34 +380,47 @@ export default function KanbanBoard() {
       {error && <div style={{ padding: 14, borderRadius: 14, background: '#fff7ed', color: '#9a3412', fontFamily: FONT, boxShadow: SHADOW }}>{error}</div>}
 
       {canEdit && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" style={{ gap: 10, padding: 16, background: '#fff', borderRadius: 16, boxShadow: SHADOW }}>
-          <input
-            value={title}
-            onChange={event => setTitle(event.target.value)}
-            onKeyDown={event => { if (event.key === 'Enter') createCard() }}
-            placeholder="เพิ่มงานใหม่..."
-            style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', fontFamily: FONT, fontSize: 14 }}
-          />
-          <input
-            value={assigneeName}
-            onChange={event => setAssigneeName(event.target.value)}
-            list="kanban-assignee-options"
-            placeholder="ผู้รับผิดชอบ..."
-            style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', fontFamily: FONT, fontSize: 14 }}
-          />
-          <input
-            type="date"
-            value={dueDate}
-            onChange={event => setDueDate(event.target.value)}
-            style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', fontFamily: FONT, fontSize: 14 }}
-          />
+        <div style={{ background: '#fff', borderRadius: 16, boxShadow: SHADOW, overflow: 'hidden' }}>
           <button
-            disabled={saving || !title.trim()}
-            onClick={createCard}
-            style={{ border: 'none', borderRadius: 12, padding: '10px 16px', background: title.trim() ? '#1a2744' : '#cbd5e1', color: '#fff', cursor: title.trim() ? 'pointer' : 'default', fontFamily: FONT, fontSize: 14 }}
+            onClick={() => setFormOpen(prev => !prev)}
+            className="md:hidden"
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: 'none', background: 'transparent', padding: '12px 16px', cursor: 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 700, color: '#1a2744' }}
           >
-            เพิ่มงาน
+            + เพิ่มงานใหม่
+            <span style={{ fontSize: 12, color: '#64748b' }}>{formOpen ? 'ซ่อน ▲' : 'แสดง ▼'}</span>
           </button>
+          <div
+            className={`${formOpen ? 'grid' : 'hidden'} md:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 pt-0 md:pt-4`}
+            style={{ gap: 10, paddingLeft: 16, paddingRight: 16, paddingBottom: 16 }}
+          >
+            <input
+              value={title}
+              onChange={event => setTitle(event.target.value)}
+              onKeyDown={event => { if (event.key === 'Enter') createCard() }}
+              placeholder="เพิ่มงานใหม่..."
+              style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', fontFamily: FONT, fontSize: 14 }}
+            />
+            <input
+              value={assigneeName}
+              onChange={event => setAssigneeName(event.target.value)}
+              list="kanban-assignee-options"
+              placeholder="ผู้รับผิดชอบ..."
+              style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', fontFamily: FONT, fontSize: 14 }}
+            />
+            <input
+              type="date"
+              value={dueDate}
+              onChange={event => setDueDate(event.target.value)}
+              style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', fontFamily: FONT, fontSize: 14 }}
+            />
+            <button
+              disabled={saving || !title.trim()}
+              onClick={createCard}
+              style={{ border: 'none', borderRadius: 12, padding: '10px 16px', background: title.trim() ? '#1a2744' : '#cbd5e1', color: '#fff', cursor: title.trim() ? 'pointer' : 'default', fontFamily: FONT, fontSize: 14 }}
+            >
+              เพิ่มงาน
+            </button>
+          </div>
         </div>
       )}
 
