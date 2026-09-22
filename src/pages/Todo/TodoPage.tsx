@@ -503,18 +503,20 @@ export default function TodoPage() {
 
   return (
     <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#eef0f7' }}>
-      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 16, padding: '16px 24px', background: 'linear-gradient(135deg, #fff 0%, #f8faff 100%)', borderBottom: '1px solid #e4e8f2', boxShadow: '0 2px 12px rgba(0,0,0,0.05)', flexShrink: 0 }}>
-        <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg, #1a2744, #2d4a8a)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Anuphan, sans-serif', fontWeight: 700, boxShadow: '0 4px 14px rgba(26,39,68,0.28)' }}>K</div>
-        <div>
-          <h1 style={{ margin: 0, fontFamily: 'Anuphan, sans-serif', fontSize: 20, lineHeight: 1.2, color: '#1e293b' }}>Kanban</h1>
-          <p style={{ margin: '2px 0 0', fontFamily: 'Anuphan, sans-serif', fontSize: 13.5, color: '#94a3b8' }}>
-            {activeMode === 'dashboard' ? `${dashboard.totals.open} งานเปิดในทีม` : activeMode === 'kanban' ? 'Kanban กลางของทีม' : `${openCount} งานที่ยังไม่เสร็จ`}
-          </p>
+      <div className="flex flex-col md:flex-row md:items-center" style={{ gap: 12, padding: '16px 24px', background: 'linear-gradient(135deg, #fff 0%, #f8faff 100%)', borderBottom: '1px solid #e4e8f2', boxShadow: '0 2px 12px rgba(0,0,0,0.05)', flexShrink: 0 }}>
+        <div className="flex items-center" style={{ gap: 16 }}>
+          <div style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 12, background: 'linear-gradient(135deg, #1a2744, #2d4a8a)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Anuphan, sans-serif', fontWeight: 700, boxShadow: '0 4px 14px rgba(26,39,68,0.28)' }}>K</div>
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ margin: 0, fontFamily: 'Anuphan, sans-serif', fontSize: 20, lineHeight: 1.2, color: '#1e293b' }}>Kanban</h1>
+            <p style={{ margin: '2px 0 0', fontFamily: 'Anuphan, sans-serif', fontSize: 13.5, color: '#94a3b8' }}>
+              {activeMode === 'dashboard' ? `${dashboard.totals.open} งานเปิดในทีม` : activeMode === 'kanban' ? 'Kanban กลางของทีม' : `${openCount} งานที่ยังไม่เสร็จ`}
+            </p>
+          </div>
         </div>
 
-        <div style={{ marginLeft: 'auto', display: 'flex', padding: 4, borderRadius: 12, background: '#e2e8f0' }}>
+        <div className="md:ml-auto" style={{ display: 'flex', padding: 4, borderRadius: 12, background: '#e2e8f0' }}>
           {(['kanban', 'mine', ...(showDashboard ? ['dashboard'] as TodoMode[] : [])] as TodoMode[]).map(item => (
-            <button key={item} onClick={() => setMode(item)} style={{ border: 'none', borderRadius: 9, padding: '8px 12px', background: mode === item ? '#fff' : 'transparent', color: mode === item ? '#1e293b' : '#64748b', boxShadow: mode === item ? '0 2px 8px rgba(15,23,42,0.08)' : 'none', cursor: 'pointer', fontFamily: 'Anuphan, sans-serif', fontSize: 13.5 }}>
+            <button key={item} onClick={() => setMode(item)} style={{ flex: 1, border: 'none', borderRadius: 9, padding: '8px 12px', background: mode === item ? '#fff' : 'transparent', color: mode === item ? '#1e293b' : '#64748b', boxShadow: mode === item ? '0 2px 8px rgba(15,23,42,0.08)' : 'none', cursor: 'pointer', fontFamily: 'Anuphan, sans-serif', fontSize: 13.5, whiteSpace: 'nowrap' }}>
               {item === 'mine' ? 'รายการของฉัน' : item === 'kanban' ? 'Kanban กลาง' : 'Dashboard'}
             </button>
           ))}
@@ -522,7 +524,7 @@ export default function TodoPage() {
       </div>
 
       {activeMode === 'mine' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, padding: 16, background: '#fff', borderBottom: '1px solid #e4e8f2' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5" style={{ gap: 10, padding: 16, background: '#fff', borderBottom: '1px solid #e4e8f2' }}>
           <input value={title} onChange={event => setTitle(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') createTodo() }} placeholder="เพิ่ม Todo..." style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }} />
           <input value={note} onChange={event => setNote(event.target.value)} placeholder="โน้ต" style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }} />
           <select value={priority} onChange={event => setPriority(event.target.value as 'normal' | 'high')} style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', background: '#fff', outline: 'none', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }}>

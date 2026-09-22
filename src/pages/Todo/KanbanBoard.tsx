@@ -379,7 +379,7 @@ export default function KanbanBoard() {
       {error && <div style={{ padding: 14, borderRadius: 14, background: '#fff7ed', color: '#9a3412', fontFamily: FONT, boxShadow: SHADOW }}>{error}</div>}
 
       {canEdit && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, padding: 16, background: '#fff', borderRadius: 16, boxShadow: SHADOW }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" style={{ gap: 10, padding: 16, background: '#fff', borderRadius: 16, boxShadow: SHADOW }}>
           <input
             value={title}
             onChange={event => setTitle(event.target.value)}
