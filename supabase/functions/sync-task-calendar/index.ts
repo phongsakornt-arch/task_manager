@@ -1,14 +1,8 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
 import { requireEditor } from '../_shared/auth.ts'
+import { getGoogleAccessToken } from '../_shared/googleOAuth.ts'
 
 const YEC_CALENDAR_ID = 'YEC@thaichamber.org'
-const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
-const GOOGLE_SCOPE = 'https://www.googleapis.com/auth/calendar'
-
-type ServiceAccount = {
-  client_email: string
-  private_key: string
-}
 
 type TaskRow = {
   id: string
@@ -34,63 +28,6 @@ async function sha256(value: string) {
   const bytes = new TextEncoder().encode(value)
   const digest = await crypto.subtle.digest('SHA-256', bytes)
   return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('')
-}
-
-function base64Url(input: string | ArrayBuffer) {
-  const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : new Uint8Array(input)
-  let binary = ''
-  bytes.forEach(byte => { binary += String.fromCharCode(byte) })
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
-}
-
-function pemToArrayBuffer(pem: string) {
-  const normalized = pem.replace(/\\n/g, '\n')
-  const base64 = normalized
-    .replace('-----BEGIN PRIVATE KEY-----', '')
-    .replace('-----END PRIVATE KEY-----', '')
-    .replace(/\s/g, '')
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
-  return bytes.buffer
-}
-
-async function googleAccessToken(serviceAccountJson: string) {
-  const serviceAccount = JSON.parse(serviceAccountJson) as ServiceAccount
-  if (!serviceAccount.client_email || !serviceAccount.private_key) throw new Error('Invalid Google service account JSON')
-
-  const now = Math.floor(Date.now() / 1000)
-  const header = base64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))
-  const claim = base64Url(JSON.stringify({
-    iss: serviceAccount.client_email,
-    scope: GOOGLE_SCOPE,
-    aud: GOOGLE_TOKEN_URL,
-    iat: now,
-    exp: now + 3600,
-  }))
-  const unsigned = `${header}.${claim}`
-
-  const key = await crypto.subtle.importKey(
-    'pkcs8',
-    pemToArrayBuffer(serviceAccount.private_key),
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  )
-  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(unsigned))
-  const assertion = `${unsigned}.${base64Url(signature)}`
-
-  const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion,
-    }),
-  })
-  const tokenBody = await tokenRes.json().catch(() => ({}))
-  if (!tokenRes.ok || !tokenBody.access_token) throw new Error(tokenBody.error_description || tokenBody.error || 'Google token request failed')
-  return tokenBody.access_token as string
 }
 
 async function googleCalendarRequest<T>(accessToken: string, path: string, init: RequestInit = {}) {
@@ -172,16 +109,16 @@ Deno.serve(async (req) => {
     if (error || !data) return jsonResponse({ error: error?.message || 'Task not found' }, 404)
     const task = data as TaskRow
 
-    const googleConfig = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON')
-    if (!googleConfig) {
+    let accessToken: string
+    try {
+      accessToken = await getGoogleAccessToken()
+    } catch (tokenError) {
       await supabase.from('tasks').update({
         calendar_sync_status: 'skipped_missing_google_config',
         calendar_last_sync_at: new Date().toISOString(),
       }).eq('id', task.id)
-      return jsonResponse({ success: false, status: 'missing_google_config', calendarId })
+      return jsonResponse({ success: false, status: 'missing_google_config', calendarId, message: tokenError instanceof Error ? tokenError.message : undefined })
     }
-
-    const accessToken = await googleAccessToken(googleConfig)
 
     if (task.deleted) {
       if (task.calendar_event_id) {

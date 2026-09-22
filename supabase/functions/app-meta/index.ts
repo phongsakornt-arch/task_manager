@@ -1,8 +1,13 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
+import { isGoogleCalendarConnected } from '../_shared/googleOAuth.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405)
+
+  const calendarConnected = Deno.env.get('GOOGLE_CALENDAR_ID') && Deno.env.get('GOOGLE_OAUTH_CLIENT_ID')
+    ? (await isGoogleCalendarConnected()).connected
+    : false
 
   return jsonResponse({
     success: true,
@@ -12,7 +17,7 @@ Deno.serve(async (req) => {
     generatedAt: new Date().toISOString(),
     externalProviders: {
       email: Deno.env.get('RESEND_API_KEY') ? 'configured' : 'not_configured',
-      calendar: Deno.env.get('GOOGLE_CALENDAR_ID') && Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') ? 'configured' : 'not_configured',
+      calendar: calendarConnected ? 'configured' : 'not_configured',
       publicSite: Deno.env.get('PUBLIC_SITE_URL') || null,
     },
   })

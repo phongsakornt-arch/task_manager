@@ -1,5 +1,6 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
 import { requireEditor } from '../_shared/auth.ts'
+import { isGoogleCalendarConnected } from '../_shared/googleOAuth.ts'
 
 const TABLES = [
   'committees',
@@ -36,7 +37,7 @@ Deno.serve(async (req) => {
       resend: Boolean(Deno.env.get('RESEND_API_KEY')),
       taskEmailFrom: Boolean(Deno.env.get('TASK_EMAIL_FROM')),
       googleCalendarId: Boolean(Deno.env.get('GOOGLE_CALENDAR_ID')),
-      googleServiceAccount: Boolean(Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON')),
+      googleCalendarConnected: (await isGoogleCalendarConnected()).connected,
       publicSiteUrl: Boolean(Deno.env.get('PUBLIC_SITE_URL')),
     }
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { canManageSystem } from '../../lib/permissions'
 import { useAuthStore } from '../../stores/authStore'
@@ -117,6 +117,10 @@ export default function SystemPage() {
   // Calendar Resync
   const [resync, setResync] = useState<ResyncResult | null>(null)
 
+  // Google Calendar OAuth connection
+  const [googleStatus, setGoogleStatus] = useState<{ connected: boolean; connectedEmail: string | null } | null>(null)
+  const [googleConnectMessage, setGoogleConnectMessage] = useState<string | null>(null)
+
   const configRows = useMemo(() => Object.entries(health?.config ?? {}), [health])
 
   // ── Generic invoke ──────────────────────────────────────────────────────────
@@ -128,6 +132,32 @@ export default function SystemPage() {
     if (error) { setError(error.message); return null }
     return data ?? null
   }
+
+  // ── Google Calendar connection ──────────────────────────────────────────────
+  const loadGoogleStatus = async () => {
+    const result = await invoke<{ success: boolean; connected: boolean; connectedEmail: string | null }>('google-oauth-status')
+    if (result) setGoogleStatus(result)
+  }
+
+  const connectGoogleCalendar = async () => {
+    const result = await invoke<{ success: boolean; url: string }>('google-oauth-start')
+    if (result?.url) window.location.href = result.url
+  }
+
+  useEffect(() => {
+    loadGoogleStatus()
+    const params = new URLSearchParams(window.location.search)
+    const status = params.get('google_calendar')
+    if (status === 'connected') {
+      setGoogleConnectMessage('เชื่อมต่อ Google Calendar สำเร็จแล้ว')
+      window.history.replaceState({}, '', window.location.pathname)
+    } else if (status === 'error') {
+      setGoogleConnectMessage(`เชื่อมต่อไม่สำเร็จ: ${params.get('message') || 'unknown error'}`)
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+    // Standard fetch-on-mount pattern; loadGoogleStatus sets state internally.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Health Check ────────────────────────────────────────────────────────────
   const runHealth = async () => {
@@ -353,6 +383,35 @@ export default function SystemPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+        </Section>
+
+        {/* ── Google Calendar OAuth connection ─────────────────────────────── */}
+        <Section
+          icon="🔗"
+          title="เชื่อมต่อ Google Calendar"
+          desc="ต้องเชื่อมต่อบัญชี YEC@thaichamber.org ผ่าน OAuth ก่อน ระบบถึงจะสร้าง/แก้ไข/ส่งนัดหมายในปฏิทินแทนได้จริง (แทนที่วิธี Service Account เดิมที่ติดนโยบายแชร์ปฏิทินนอกองค์กร)"
+          action={
+            <button
+              disabled={busy === 'google-oauth-start'}
+              onClick={connectGoogleCalendar}
+              style={btnStyle(googleStatus?.connected ? '#f1f5f9' : '#1a2744', googleStatus?.connected ? '#334155' : '#fff')}
+            >
+              {busy === 'google-oauth-start' ? 'กำลังเปิด...' : googleStatus?.connected ? '🔄 เชื่อมต่อใหม่' : '🔗 เชื่อมต่อ Google Calendar'}
+            </button>
+          }
+        >
+          <div style={{ marginTop: 10, fontFamily: 'Anuphan, sans-serif', fontSize: 13.5 }}>
+            {googleStatus?.connected ? (
+              <span style={{ color: '#047857', fontWeight: 700 }}>✓ เชื่อมต่อแล้ว{googleStatus.connectedEmail ? ` (${googleStatus.connectedEmail})` : ''}</span>
+            ) : (
+              <span style={{ color: '#b91c1c', fontWeight: 700 }}>✗ ยังไม่ได้เชื่อมต่อ — ปุ่ม "ส่งนัดหมาย" จะยังใช้วิธีเปิดหน้า Google Calendar แทน</span>
+            )}
+          </div>
+          {googleConnectMessage && (
+            <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 10, background: '#f8fafc', color: '#475569', fontFamily: 'Anuphan, sans-serif', fontSize: 12.5 }}>
+              {googleConnectMessage}
             </div>
           )}
         </Section>
