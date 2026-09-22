@@ -959,63 +959,71 @@ export default function BudgetPage() {
     <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#eef2f8' }}>
 
       {/* ── TOP HEADER ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '12px 20px',
-        background: 'linear-gradient(135deg, #1a2744 0%, #2d4a8a 100%)',
-        flexShrink: 0,
-        boxShadow: '0 2px 16px rgba(0,0,0,0.2)',
-      }}>
-        <div style={{
-          width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-          background: 'linear-gradient(135deg, #c9a84c, #f0d878)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'Anuphan, sans-serif', fontWeight: 900, fontSize: 18, color: '#1a2744',
-        }}>B</div>
-        <div>
-          <div style={{ fontFamily: 'Anuphan, sans-serif', fontWeight: 700, fontSize: 17, color: '#fff', lineHeight: 1.2 }}>งบประมาณ</div>
-          <div style={{ fontFamily: 'Anuphan, sans-serif', fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 1 }}>
-            {filteredProjects.length} จาก {projects.length} โครงการ
+      <div
+        className="flex flex-col md:flex-row md:items-center"
+        style={{
+          gap: 12,
+          padding: '12px 20px',
+          background: 'linear-gradient(135deg, #1a2744 0%, #2d4a8a 100%)',
+          flexShrink: 0,
+          boxShadow: '0 2px 16px rgba(0,0,0,0.2)',
+        }}
+      >
+        <div className="flex items-center" style={{ gap: 12 }}>
+          <div style={{
+            width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+            background: 'linear-gradient(135deg, #c9a84c, #f0d878)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'Anuphan, sans-serif', fontWeight: 900, fontSize: 18, color: '#1a2744',
+          }}>B</div>
+          <div>
+            <div style={{ fontFamily: 'Anuphan, sans-serif', fontWeight: 700, fontSize: 17, color: '#fff', lineHeight: 1.2 }}>งบประมาณ</div>
+            <div style={{ fontFamily: 'Anuphan, sans-serif', fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 1 }}>
+              {filteredProjects.length} จาก {projects.length} โครงการ
+            </div>
           </div>
         </div>
 
-        {/* Search — single, in header only */}
-        <div style={{ marginLeft: 'auto', position: 'relative', flexShrink: 0 }}>
-          <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.45)', fontSize: 14, pointerEvents: 'none' }}>🔍</span>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="ค้นหาโครงการ รหัส หรือประเภท..."
-            style={{
-              width: 280, padding: '9px 14px 9px 34px', borderRadius: 12,
-              border: '1.5px solid rgba(255,255,255,0.2)',
-              background: 'rgba(255,255,255,0.12)',
-              color: '#fff', fontFamily: 'Anuphan, sans-serif', fontSize: 13.5,
-              outline: 'none',
-            }}
-          />
-        </div>
+        <div className="flex flex-wrap md:ml-auto" style={{ gap: 10, alignItems: 'center' }}>
+          {/* Search — single, in header only */}
+          <div className="w-full md:w-auto" style={{ position: 'relative', flexShrink: 0 }}>
+            <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.45)', fontSize: 14, pointerEvents: 'none' }}>🔍</span>
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="ค้นหาโครงการ รหัส หรือประเภท..."
+              className="w-full md:w-[280px]"
+              style={{
+                padding: '9px 14px 9px 34px', borderRadius: 12,
+                border: '1.5px solid rgba(255,255,255,0.2)',
+                background: 'rgba(255,255,255,0.12)',
+                color: '#fff', fontFamily: 'Anuphan, sans-serif', fontSize: 13.5,
+                outline: 'none', minWidth: 0,
+              }}
+            />
+          </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          {canEdit && (
-            <button onClick={() => openProjectEditor()} style={headerButton('rgba(255,255,255,0.15)', '#fff', true)}>
-              + โครงการ
+          <div style={{ display: 'flex', gap: 8 }}>
+            {canEdit && (
+              <button onClick={() => openProjectEditor()} style={headerButton('rgba(255,255,255,0.15)', '#fff', true)}>
+                + โครงการ
+              </button>
+            )}
+            <button onClick={exportOverviewCsv} style={headerButton('rgba(255,255,255,0.1)', 'rgba(255,255,255,0.75)')}>
+              CSV
             </button>
-          )}
-          <button onClick={exportOverviewCsv} style={headerButton('rgba(255,255,255,0.1)', 'rgba(255,255,255,0.75)')}>
-            CSV
-          </button>
-          <button onClick={printOverview} style={headerButton('#c9a84c', '#1a2744')}>
-            พิมพ์ PDF
-          </button>
+            <button onClick={printOverview} style={headerButton('#c9a84c', '#1a2744')}>
+              พิมพ์ PDF
+            </button>
+          </div>
         </div>
       </div>
 
       {/* ── KPI STRIP ── */}
-      <div style={{ display: 'flex', gap: 10, padding: '10px 16px', background: '#fff', borderBottom: '1px solid #e4e8f2', flexShrink: 0 }}>
+      <div className="grid grid-cols-2 md:flex" style={{ gap: 10, padding: '10px 16px', background: '#fff', borderBottom: '1px solid #e4e8f2', flexShrink: 0 }}>
         {metricCards.map(card => (
-          <div key={card.label} style={{
-            flex: 1, borderRadius: 14, background: '#f8fafc', padding: '10px 14px',
+          <div key={card.label} className="md:flex-1" style={{
+            borderRadius: 14, background: '#f8fafc', padding: '10px 14px',
             border: '1px solid #e4eaf5',
             display: 'flex', alignItems: 'center', gap: 10, minWidth: 0,
           }}>
@@ -1032,7 +1040,7 @@ export default function BudgetPage() {
 
       {/* ── FILTER BAR ── always visible, clean row */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 10,
+        display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10,
         padding: '8px 16px', background: '#fff',
         borderBottom: '1px solid #e4e8f2', flexShrink: 0,
       }}>
@@ -1248,7 +1256,7 @@ export default function BudgetPage() {
                   flexShrink: 0,
                   borderRadius: '20px 20px 0 0',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                     <div style={{ minWidth: 0 }}>
                       <h2 style={{ margin: 0, fontFamily: 'Anuphan, sans-serif', fontSize: 16, fontWeight: 800, color: '#1e293b', lineHeight: 1.35 }}>
                         {selectedProject.project_name}
@@ -1257,7 +1265,7 @@ export default function BudgetPage() {
                         {[selectedProject.department_code, selectedProject.budget_filter, selectedProject.project_type].filter(Boolean).join(' · ')}
                       </p>
                     </div>
-                    <div style={{ display: 'flex', gap: 7, flexShrink: 0, alignItems: 'center' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'center' }}>
                       <span style={{
                         borderRadius: 999, padding: '5px 10px',
                         background: selectedProject.usedPct > 100 ? '#fef2f2' : '#ecfdf5',
@@ -1283,7 +1291,7 @@ export default function BudgetPage() {
                 </div>
 
                 {/* Tab Bar */}
-                <div style={{ display: 'flex', gap: 0, background: '#fff', borderBottom: '2px solid #e4e8f2', flexShrink: 0 }}>
+                <div style={{ display: 'flex', gap: 0, background: '#fff', borderBottom: '2px solid #e4e8f2', flexShrink: 0, overflowX: 'auto' }}>
                   {tabDefs.map(tab => (
                     <button
                       key={tab.key}
@@ -1294,7 +1302,7 @@ export default function BudgetPage() {
                         color: rightTab === tab.key ? '#1a2744' : '#64748b',
                         borderBottom: rightTab === tab.key ? '2.5px solid #1a2744' : '2.5px solid transparent',
                         marginBottom: -2,
-                        display: 'flex', alignItems: 'center', gap: 7,
+                        display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0, whiteSpace: 'nowrap',
                         transition: 'color 0.15s',
                       }}
                     >
