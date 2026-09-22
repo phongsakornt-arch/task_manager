@@ -688,31 +688,39 @@ export default function ApprovalPage() {
     <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#f0f4fa' }}>
 
       {/* ── TOP BAR ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 14, padding: '14px 24px',
-        background: '#fff', borderBottom: '1px solid #e4e8f2',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.05)', flexShrink: 0,
-      }}>
-        <div style={{
-          width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-          background: 'linear-gradient(135deg, #1a2744, #2d4a8a)',
-          color: '#c9a84c', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'Anuphan, sans-serif', fontWeight: 800, fontSize: 18,
-          boxShadow: '0 4px 12px rgba(26,39,68,0.25)',
-        }}>◎</div>
-        <div>
-          <h1 style={{ margin: 0, fontFamily: 'Anuphan, sans-serif', fontSize: 18, fontWeight: 800, color: '#1e293b' }}>เอกสารอนุมัติ</h1>
-          <p style={{ margin: 0, fontFamily: 'Anuphan, sans-serif', fontSize: 12.5, color: '#94a3b8' }}>{filteredDocs.length} จาก {categoryDocs.length} เอกสาร</p>
+      <div
+        className="flex flex-col md:flex-row md:items-center"
+        style={{
+          gap: 14, padding: '14px 24px',
+          background: '#fff', borderBottom: '1px solid #e4e8f2',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.05)', flexShrink: 0,
+        }}
+      >
+        <div className="flex items-center" style={{ gap: 14 }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+            background: 'linear-gradient(135deg, #1a2744, #2d4a8a)',
+            color: '#c9a84c', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'Anuphan, sans-serif', fontWeight: 800, fontSize: 18,
+            boxShadow: '0 4px 12px rgba(26,39,68,0.25)',
+          }}>◎</div>
+          <div>
+            <h1 style={{ margin: 0, fontFamily: 'Anuphan, sans-serif', fontSize: 18, fontWeight: 800, color: '#1e293b' }}>เอกสารอนุมัติ</h1>
+            <p style={{ margin: 0, fontFamily: 'Anuphan, sans-serif', fontSize: 12.5, color: '#94a3b8' }}>{filteredDocs.length} จาก {categoryDocs.length} เอกสาร</p>
+          </div>
         </div>
-        <input
-          value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="🔍  ค้นหาเอกสาร ผู้อนุมัติ ไฟล์..."
-          style={{ ...inputStyle, marginLeft: 'auto', width: 280, minHeight: 40 }}
-        />
-        <button onClick={exportApprovalReport} style={btnGhost()}>📄 รายงาน PDF</button>
-        {canEdit && (
-          <button onClick={() => { openEditor(null); setSelectedId('__new__') }} style={btnPrimary}>+ สร้างเอกสาร</button>
-        )}
+        <div className="flex flex-wrap md:ml-auto" style={{ gap: 10, alignItems: 'center' }}>
+          <input
+            value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="🔍  ค้นหาเอกสาร ผู้อนุมัติ ไฟล์..."
+            className="w-full md:w-[280px]"
+            style={{ ...inputStyle, minHeight: 40, minWidth: 0 }}
+          />
+          <button onClick={exportApprovalReport} style={btnGhost()}>📄 รายงาน PDF</button>
+          {canEdit && (
+            <button onClick={() => { openEditor(null); setSelectedId('__new__') }} style={btnPrimary}>+ สร้างเอกสาร</button>
+          )}
+        </div>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '20px 24px' }}>

@@ -308,14 +308,16 @@ export default function AnnualPage() {
         }
       `}</style>
 
-      <div className="annual-toolbar" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 24px', background: 'linear-gradient(135deg, #fff 0%, #f8faff 100%)', borderBottom: '1px solid #e4e8f2', boxShadow: '0 2px 12px rgba(0,0,0,0.05)', flexShrink: 0 }}>
-        <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg, #1a2744, #2d4a8a)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Anuphan, sans-serif', fontWeight: 700, boxShadow: '0 4px 14px rgba(26,39,68,0.28)' }}>Y</div>
-        <div>
-          <h1 style={{ margin: 0, fontFamily: 'Anuphan, sans-serif', fontSize: 20, lineHeight: 1.2, color: '#1e293b' }}>แผนรายปี</h1>
-          <p style={{ margin: '2px 0 0', fontFamily: 'Anuphan, sans-serif', fontSize: 13.5, color: '#94a3b8' }}>{counts.dated} งานในปฏิทิน ปี {year + 543}</p>
+      <div className="annual-toolbar flex flex-col md:flex-row md:items-center" style={{ gap: 16, padding: '16px 24px', background: 'linear-gradient(135deg, #fff 0%, #f8faff 100%)', borderBottom: '1px solid #e4e8f2', boxShadow: '0 2px 12px rgba(0,0,0,0.05)', flexShrink: 0 }}>
+        <div className="flex items-center" style={{ gap: 16 }}>
+          <div style={{ width: 42, height: 42, borderRadius: 12, flexShrink: 0, background: 'linear-gradient(135deg, #1a2744, #2d4a8a)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Anuphan, sans-serif', fontWeight: 700, boxShadow: '0 4px 14px rgba(26,39,68,0.28)' }}>Y</div>
+          <div>
+            <h1 style={{ margin: 0, fontFamily: 'Anuphan, sans-serif', fontSize: 20, lineHeight: 1.2, color: '#1e293b' }}>แผนรายปี</h1>
+            <p style={{ margin: '2px 0 0', fontFamily: 'Anuphan, sans-serif', fontSize: 13.5, color: '#94a3b8' }}>{counts.dated} งานในปฏิทิน ปี {year + 543}</p>
+          </div>
         </div>
 
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div className="flex flex-wrap md:ml-auto" style={{ gap: 10, alignItems: 'center' }}>
           <button onClick={clearFilters} style={{ border: 'none', borderRadius: 12, padding: '10px 13px', background: '#f1f5f9', color: '#334155', cursor: 'pointer', fontFamily: 'Anuphan, sans-serif', fontSize: 13 }}>ล้างตัวกรอง</button>
           {canAiReport && (
             <button onClick={generateAiReport} disabled={aiReportLoading} style={{ border: 'none', borderRadius: 12, padding: '10px 14px', background: 'linear-gradient(135deg,#7c3aed,#a855f7)', color: '#fff', cursor: 'pointer', fontFamily: 'Anuphan, sans-serif', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 4px 12px rgba(124,58,237,0.28)' }}>
@@ -326,7 +328,10 @@ export default function AnnualPage() {
         </div>
       </div>
 
-      <div className="annual-controls" style={{ display: 'grid', gridTemplateColumns: filtersCollapsed ? 'minmax(0, 1fr) auto' : '120px minmax(220px, 1fr) minmax(180px, 0.8fr) 130px minmax(220px, 1.2fr)', gap: 10, padding: filtersCollapsed ? '10px 16px' : 16, background: '#fff', borderBottom: '1px solid #e4e8f2', alignItems: 'start' }}>
+      <div
+        className={`annual-controls ${filtersCollapsed ? '' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-[120px_minmax(220px,1fr)_minmax(180px,0.8fr)_130px_minmax(220px,1.2fr)]'}`}
+        style={{ display: 'grid', gridTemplateColumns: filtersCollapsed ? 'minmax(0, 1fr) auto' : undefined, gap: 10, padding: filtersCollapsed ? '10px 16px' : 16, background: '#fff', borderBottom: '1px solid #e4e8f2', alignItems: 'start' }}
+      >
         {filtersCollapsed ? (
           <>
             <div style={{ minHeight: 40, display: 'flex', alignItems: 'center', color: '#64748b', fontFamily: 'Anuphan, sans-serif', fontSize: 13.5, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{filterSummary}</div>
@@ -428,7 +433,7 @@ export default function AnnualPage() {
           </section>
         )}
 
-        <div className="annual-summary" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(140px, 1fr))', gap: 12, marginBottom: 16 }}>
+        <div className="annual-summary" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 16 }}>
           {[
             { label: 'งานทั้งหมด', value: counts.total, color: '#1a2744' },
             { label: 'มีวันที่', value: counts.dated, color: '#1d4ed8' },

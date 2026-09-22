@@ -287,15 +287,17 @@ export default function UsersPage() {
 
   return (
     <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#eef0f7' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 24px', background: 'linear-gradient(135deg, #fff 0%, #f8faff 100%)', borderBottom: '1px solid #e4e8f2', boxShadow: '0 2px 12px rgba(0,0,0,0.05)', flexShrink: 0 }}>
-        <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg, #1a2744, #2d4a8a)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Anuphan, sans-serif', fontWeight: 700, boxShadow: '0 4px 14px rgba(26,39,68,0.28)' }}>U</div>
-        <div>
-          <h1 style={{ margin: 0, fontFamily: 'Anuphan, sans-serif', fontSize: 20, lineHeight: 1.2, color: '#1e293b' }}>จัดการผู้ใช้</h1>
-          <p style={{ margin: '2px 0 0', fontFamily: 'Anuphan, sans-serif', fontSize: 13.5, color: '#94a3b8' }}>{filteredUsers.length} จาก {users.length} ผู้ใช้</p>
+      <div className="flex flex-col md:flex-row md:items-center" style={{ gap: 16, padding: '16px 24px', background: 'linear-gradient(135deg, #fff 0%, #f8faff 100%)', borderBottom: '1px solid #e4e8f2', boxShadow: '0 2px 12px rgba(0,0,0,0.05)', flexShrink: 0 }}>
+        <div className="flex items-center" style={{ gap: 16 }}>
+          <div style={{ width: 42, height: 42, borderRadius: 12, flexShrink: 0, background: 'linear-gradient(135deg, #1a2744, #2d4a8a)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Anuphan, sans-serif', fontWeight: 700, boxShadow: '0 4px 14px rgba(26,39,68,0.28)' }}>U</div>
+          <div>
+            <h1 style={{ margin: 0, fontFamily: 'Anuphan, sans-serif', fontSize: 20, lineHeight: 1.2, color: '#1e293b' }}>จัดการผู้ใช้</h1>
+            <p style={{ margin: '2px 0 0', fontFamily: 'Anuphan, sans-serif', fontSize: 13.5, color: '#94a3b8' }}>{filteredUsers.length} จาก {users.length} ผู้ใช้</p>
+          </div>
         </div>
 
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'center' }}>
-          <input value={search} onChange={event => setSearch(event.target.value)} placeholder="ค้นหาชื่อ อีเมล สมาชิก..." style={{ width: 260, padding: '10px 14px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', background: '#f8fafc', color: '#1e293b', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }} />
+        <div className="flex flex-wrap md:ml-auto" style={{ gap: 10, alignItems: 'center' }}>
+          <input value={search} onChange={event => setSearch(event.target.value)} placeholder="ค้นหาชื่อ อีเมล สมาชิก..." className="w-full md:w-[260px]" style={{ padding: '10px 14px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', background: '#f8fafc', color: '#1e293b', fontFamily: 'Anuphan, sans-serif', fontSize: 14, minWidth: 0 }} />
           <select value={roleFilter} onChange={event => setRoleFilter(event.target.value as UserRole | 'all')} style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', background: '#fff', color: '#334155', fontFamily: 'Anuphan, sans-serif', fontSize: 14, outline: 'none' }}>
             <option value="all">ทุก role</option>
             {ROLES.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
@@ -321,8 +323,8 @@ export default function UsersPage() {
         {error && <div style={{ marginBottom: 14, padding: 14, borderRadius: 14, background: '#fff7ed', color: '#9a3412', fontFamily: 'Anuphan, sans-serif', boxShadow: SHADOW }}>{error}</div>}
         {message && <div style={{ marginBottom: 14, padding: 14, borderRadius: 14, background: '#ecfdf5', color: '#047857', fontFamily: 'Anuphan, sans-serif', boxShadow: SHADOW }}>{message}</div>}
 
-        <div style={{ borderRadius: 18, background: '#fff', boxShadow: SHADOW, border: '1px solid rgba(15,23,42,0.05)', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1.4fr) 140px minmax(200px, 1fr) 105px 145px 190px', gap: 12, padding: '12px 16px', background: '#f8fafc', borderBottom: '1px solid #e4e8f2', color: '#64748b', fontFamily: 'Anuphan, sans-serif', fontSize: 12.5 }}>
+        <div style={{ borderRadius: 18, background: '#fff', boxShadow: SHADOW, border: '1px solid rgba(15,23,42,0.05)', overflowX: 'auto', overflowY: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1.4fr) 140px minmax(200px, 1fr) 105px 145px 190px', gap: 12, padding: '12px 16px', background: '#f8fafc', borderBottom: '1px solid #e4e8f2', color: '#64748b', fontFamily: 'Anuphan, sans-serif', fontSize: 12.5, minWidth: 940 }}>
             <span>ผู้ใช้</span>
             <span>Role</span>
             <span>สมาชิกที่ผูก</span>
