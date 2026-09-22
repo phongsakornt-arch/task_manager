@@ -394,6 +394,7 @@ export default function ApprovalPage() {
       actor_email: user.email,
     })
     await logActivity(user, submit ? 'approval.submitted' : 'approval.saved', doc.title, { approval_id: doc.id })
+    if (submit) void supabase.functions.invoke('notify-approval-step', { body: { approvalId: doc.id } }).catch(() => undefined)
 
     setSelectedId(doc.id)
     setEditing(false)
@@ -455,6 +456,7 @@ export default function ApprovalPage() {
       meta: { note: actionNote.trim() || null },
     })
     await logActivity(user, `approval.${status}`, selectedDoc.title, { approval_id: selectedDoc.id, approver_id: approver.id })
+    void supabase.functions.invoke('notify-approval-step', { body: { approvalId: selectedDoc.id } }).catch(() => undefined)
     setActionNote('')
     setSaving(false)
     await loadDocs()

@@ -67,6 +67,17 @@ Deno.serve(async (req) => {
       meta: { public_action: true, note: String(note || '').trim() || null },
     })
 
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    if (supabaseUrl && serviceRoleKey) {
+      // await กันฟังก์ชันตอบกลับก่อนแล้ว runtime ตัดจบก่อน fetch เสร็จ (ไม่มี waitUntil ให้ใช้ตรงนี้)
+      await fetch(`${supabaseUrl}/functions/v1/notify-approval-step`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceRoleKey}` },
+        body: JSON.stringify({ approvalId }),
+      }).catch(() => {})
+    }
+
     return jsonResponse({ success: true, approvalId, approverId, action: nextStatus, documentStatus: docStatus })
   } catch (error) {
     return jsonResponse({ error: error instanceof Error ? error.message : 'Unknown error' }, 400)

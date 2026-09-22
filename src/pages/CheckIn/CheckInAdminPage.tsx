@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import MeetingMemberPicker from '../../components/MeetingMemberPicker'
+import { useAuthStore } from '../../stores/authStore'
 import type { Committee, Member } from '../../types'
 
 const FONT = 'Anuphan, sans-serif'
@@ -59,6 +60,7 @@ interface ResponseRow {
 }
 
 export default function CheckInAdminPage() {
+  const { user } = useAuthStore()
   const [meetings, setMeetings] = useState<Meeting[]>([])
   const [members, setMembers] = useState<Member[]>([])
   const [committees, setCommittees] = useState<Committee[]>([])
@@ -161,7 +163,7 @@ export default function CheckInAdminPage() {
     }
 
     const code = genCode()
-    const { data: inserted, error: err } = await supabase.from('meetings').insert({ code, ...form }).select().single()
+    const { data: inserted, error: err } = await supabase.from('meetings').insert({ code, created_by: user?.id ?? null, ...form }).select().single()
     if (!err && inserted) {
       const rows = Array.from(selectedIds).map(member_id => ({ meeting_id: inserted.id, member_id }))
       if (rows.length) await supabase.from('meeting_members').insert(rows)

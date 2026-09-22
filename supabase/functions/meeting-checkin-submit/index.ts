@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
 
     const { data: meeting, error: meetingError } = await supabase
       .from('meetings')
-      .select('id')
+      .select('id, title, created_by')
       .eq('code', code)
       .single()
     if (meetingError || !meeting) return jsonResponse({ error: 'ไม่พบการประชุมนี้' }, 404)
@@ -45,6 +45,27 @@ Deno.serve(async (req) => {
         { onConflict: 'meeting_id,member_id' },
       )
     if (upsertError) return jsonResponse({ error: upsertError.message }, 400)
+
+    if (meeting.created_by) {
+      const { data: member } = await supabase.from('members').select('name_th, nickname').eq('id', resolvedMemberId).maybeSingle()
+      const displayName = member ? (member.nickname ? `${member.name_th} (${member.nickname})` : member.name_th) : 'มีคน'
+      const statusLabel = status === 'going' ? (attendMode === 'online' ? 'เข้าร่วม (ออนไลน์)' : 'เข้าร่วม') : 'ลา'
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')
+      const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+      if (supabaseUrl && serviceRoleKey) {
+        await fetch(`${supabaseUrl}/functions/v1/send-push`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceRoleKey}` },
+          body: JSON.stringify({
+            userIds: [meeting.created_by],
+            title: meeting.title,
+            body: `${displayName} — ${statusLabel}`,
+            url: '/meetings',
+            tag: `checkin-${meeting.id}-${resolvedMemberId}`,
+          }),
+        }).catch(() => {})
+      }
+    }
 
     return jsonResponse({ success: true, memberId: resolvedMemberId })
   } catch (error) {
