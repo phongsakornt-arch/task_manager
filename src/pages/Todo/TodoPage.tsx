@@ -268,6 +268,8 @@ export default function TodoPage() {
   const [priority, setPriority] = useState<'normal' | 'high'>('normal')
   const [dueDate, setDueDate] = useState('')
   const [dueTime, setDueTime] = useState('')
+  // ฟอร์มเพิ่ม Todo เริ่มแบบย่อบนมือถือ — เป็น 5 ช่องวางซ้อนกันแนวตั้งบนจอเล็ก กินพื้นที่มาก
+  const [addFormOpen, setAddFormOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768)
 
   // AI Split
   const [splitTodo, setSplitTodo] = useState<TodoItem | null>(null)
@@ -524,16 +526,26 @@ export default function TodoPage() {
       </div>
 
       {activeMode === 'mine' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5" style={{ gap: 10, padding: 16, background: '#fff', borderBottom: '1px solid #e4e8f2' }}>
-          <input value={title} onChange={event => setTitle(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') createTodo() }} placeholder="เพิ่ม Todo..." style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }} />
-          <input value={note} onChange={event => setNote(event.target.value)} placeholder="โน้ต" style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }} />
-          <select value={priority} onChange={event => setPriority(event.target.value as 'normal' | 'high')} style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', background: '#fff', outline: 'none', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }}>
-            <option value="normal">ปกติ</option>
-            <option value="high">สำคัญ</option>
-          </select>
-          <input type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }} />
-          <input value={dueTime} onChange={event => setDueTime(event.target.value)} onBlur={event => setDueTime(normalizeTimeInput(event.target.value))} inputMode="numeric" placeholder="09:00" style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }} />
-          <button disabled={saving || !title.trim()} onClick={createTodo} style={{ gridColumn: '1 / -1', justifySelf: 'end', border: 'none', borderRadius: 12, padding: '10px 16px', background: title.trim() ? '#1a2744' : '#cbd5e1', color: '#fff', cursor: title.trim() ? 'pointer' : 'default', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }}>เพิ่ม Todo</button>
+        <div style={{ background: '#fff', borderBottom: '1px solid #e4e8f2' }}>
+          <button
+            onClick={() => setAddFormOpen(v => !v)}
+            className="md:hidden"
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: 'none', background: 'transparent', padding: '12px 16px', cursor: 'pointer', fontFamily: 'Anuphan, sans-serif', fontSize: 14, fontWeight: 700, color: '#1a2744' }}
+          >
+            + เพิ่ม Todo
+            <span style={{ fontSize: 12, color: '#64748b' }}>{addFormOpen ? 'ซ่อน ▲' : 'แสดง ▼'}</span>
+          </button>
+          <div className={`${addFormOpen ? 'grid' : 'hidden'} md:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 pt-0 md:pt-4`} style={{ gap: 10, paddingLeft: 16, paddingRight: 16, paddingBottom: 16 }}>
+            <input value={title} onChange={event => setTitle(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') createTodo() }} placeholder="เพิ่ม Todo..." style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }} />
+            <input value={note} onChange={event => setNote(event.target.value)} placeholder="โน้ต" style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }} />
+            <select value={priority} onChange={event => setPriority(event.target.value as 'normal' | 'high')} style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', background: '#fff', outline: 'none', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }}>
+              <option value="normal">ปกติ</option>
+              <option value="high">สำคัญ</option>
+            </select>
+            <input type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }} />
+            <input value={dueTime} onChange={event => setDueTime(event.target.value)} onBlur={event => setDueTime(normalizeTimeInput(event.target.value))} inputMode="numeric" placeholder="09:00" style={{ padding: '10px 12px', borderRadius: 12, border: '1.5px solid #e4e8f2', outline: 'none', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }} />
+            <button disabled={saving || !title.trim()} onClick={createTodo} style={{ gridColumn: '1 / -1', justifySelf: 'end', border: 'none', borderRadius: 12, padding: '10px 16px', background: title.trim() ? '#1a2744' : '#cbd5e1', color: '#fff', cursor: title.trim() ? 'pointer' : 'default', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }}>เพิ่ม Todo</button>
+          </div>
         </div>
       )}
 
@@ -562,7 +574,7 @@ export default function TodoPage() {
 
         {!loading && activeMode === 'dashboard' && (
           <div style={{ display: 'grid', gap: 16 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(140px, 1fr))', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
               {[
                 { n: dashboard.totals.open, label: 'ยังไม่เสร็จ', color: '#1d4ed8' },
                 { n: dashboard.totals.today, label: 'วันนี้', color: '#b45309' },
