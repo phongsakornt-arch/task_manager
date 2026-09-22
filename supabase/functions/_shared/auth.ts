@@ -15,7 +15,7 @@ export function serviceClient() {
   return createClient(url, key, { auth: { persistSession: false } })
 }
 
-export async function requireEditor(req: Request) {
+async function loadRequestingUser(req: Request) {
   const authHeader = req.headers.get('Authorization') ?? ''
   const token = authHeader.replace(/^Bearer\s+/i, '')
   if (!token) throw new Error('Missing authorization token')
@@ -33,7 +33,16 @@ export async function requireEditor(req: Request) {
   if (profileError || !profile) throw new Error('User profile not found')
   const user = profile as AppUser
   if (!user.active) throw new Error('User is inactive')
-  if (!['editor', 'admin', 'super_admin'].includes(user.role)) throw new Error('Forbidden')
-
   return { supabase, user }
+}
+
+export async function requireEditor(req: Request) {
+  const { supabase, user } = await loadRequestingUser(req)
+  if (!['editor', 'admin', 'super_admin'].includes(user.role)) throw new Error('Forbidden')
+  return { supabase, user }
+}
+
+// ต้อง login เท่านั้น ไม่จำกัด role — ใช้กับ action ที่พนักงานทุกคนทำได้ เช่น ส่ง push แจ้งเตือน
+export async function requireUser(req: Request) {
+  return loadRequestingUser(req)
 }

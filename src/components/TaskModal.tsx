@@ -413,6 +413,23 @@ export default function TaskModal({ task, defaultSectionId, defaultParentTaskId,
     if (rows.length) await supabase.from('task_staff').insert(rows)
   }
 
+  const notifyNewlyAssignedStaff = async (taskId: string, taskTitle: string, newlyAssignedIds: string[]) => {
+    if (!newlyAssignedIds.length) return
+    try {
+      await supabase.functions.invoke('send-push', {
+        body: {
+          userIds: newlyAssignedIds,
+          title: 'มอบหมายงานใหม่',
+          body: taskTitle,
+          url: `/?task=${taskId}`,
+          tag: `task-assigned-${taskId}`,
+        },
+      })
+    } catch {
+      // การแจ้งเตือนเป็นส่วนเสริม — ไม่บล็อกการบันทึกงานถ้าส่งไม่สำเร็จ
+    }
+  }
+
   const handleSave = async () => {
     if (readOnly || saving) return
     const cleanTitle = title.trim()
@@ -454,6 +471,8 @@ export default function TaskModal({ task, defaultSectionId, defaultParentTaskId,
       }
       await saveMembers(task.id)
       await saveStaff(task.id)
+      const newlyAssigned = staffUserIds.filter(id => id !== user?.id && !initialStaffUserIds.includes(id))
+      void notifyNewlyAssignedStaff(task.id, cleanTitle, newlyAssigned)
       const fresh = await refreshTask(task.id)
       updateTask(task.id, fresh ?? {
         ...task,
@@ -494,6 +513,7 @@ export default function TaskModal({ task, defaultSectionId, defaultParentTaskId,
 
     await saveMembers(data.id)
     await saveStaff(data.id)
+    void notifyNewlyAssignedStaff(data.id, cleanTitle, staffUserIds.filter(id => id !== user?.id))
     const fresh = await refreshTask(data.id)
     if (fresh) addTask(fresh)
     await logActivity(user, 'task.created', `Created task: ${cleanTitle}`, { task_id: data.id })

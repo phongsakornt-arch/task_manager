@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { canViewUsers, canManageSystem, canEditMeetings } from '../lib/permissions'
+import { getExistingSubscription, isPushSupported, subscribeToPush, unsubscribeFromPush } from '../lib/push'
 
 const navItems = [
   { to: '/',          icon: '▦', label: 'Board' },
@@ -33,6 +34,33 @@ export default function AppShell() {
   const visibleNavItems = visibleAdminItems.length > 0
     ? [...navItems, ...visibleAdminItems]
     : navItems
+
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [pushBusy, setPushBusy] = useState(false)
+  const [pushError, setPushError] = useState('')
+
+  useEffect(() => {
+    if (!isPushSupported()) return
+    getExistingSubscription().then(sub => setPushEnabled(!!sub))
+  }, [])
+
+  const togglePush = async () => {
+    if (!user || pushBusy) return
+    setPushBusy(true)
+    setPushError('')
+    try {
+      if (pushEnabled) {
+        await unsubscribeFromPush(user.id)
+        setPushEnabled(false)
+      } else {
+        await subscribeToPush(user.id)
+        setPushEnabled(true)
+      }
+    } catch (err) {
+      setPushError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด')
+    }
+    setPushBusy(false)
+  }
 
   const handleSignOut = async () => {
     await signOut()
@@ -201,6 +229,26 @@ export default function AppShell() {
                 </div>
               </div>
             </div>
+          )}
+          {isPushSupported() && (
+            <button
+              onClick={togglePush}
+              disabled={pushBusy}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 14px', borderRadius: 10, border: 'none', marginBottom: 2,
+                background: 'transparent', cursor: pushBusy ? 'default' : 'pointer',
+                fontFamily: 'Anuphan, sans-serif', fontSize: 13,
+                color: pushEnabled ? 'rgba(201,168,76,0.9)' : 'rgba(255,255,255,0.55)',
+                opacity: pushBusy ? 0.6 : 1,
+              }}
+            >
+              <span style={{ fontSize: 15 }}>{pushEnabled ? '🔔' : '🔕'}</span>
+              {pushBusy ? 'กำลังตั้งค่า...' : pushEnabled ? 'ปิดการแจ้งเตือน' : 'เปิดการแจ้งเตือน'}
+            </button>
+          )}
+          {pushError && (
+            <div style={{ padding: '4px 14px 8px', fontSize: 11.5, color: '#fca5a5', fontFamily: 'Anuphan, sans-serif' }}>{pushError}</div>
           )}
           <button
             onClick={handleSignOut}
