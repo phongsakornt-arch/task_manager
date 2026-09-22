@@ -1,5 +1,6 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
 import { requireEditor } from '../_shared/auth.ts'
+import { notifySuperAdmins } from '../_shared/notify.ts'
 
 const VALID_ROLES = ['super_admin', 'admin', 'editor', 'member']
 
@@ -54,6 +55,7 @@ Deno.serve(async (req) => {
       detail: `Created user ${email}`,
       meta: { user_id: created.user.id, email, role: finalRole },
     })
+    await notifySuperAdmins(user.id, 'ความเคลื่อนไหวผู้ใช้งาน', `${user.name}: สร้างผู้ใช้ ${email} (${finalRole})`, 'activity-user.created')
 
     return jsonResponse({ success: true, user: profile })
   } catch (error) {

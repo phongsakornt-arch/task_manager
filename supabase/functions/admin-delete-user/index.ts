@@ -1,5 +1,6 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
 import { requireEditor } from '../_shared/auth.ts'
+import { notifySuperAdmins } from '../_shared/notify.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -40,6 +41,7 @@ Deno.serve(async (req) => {
       detail: `Deleted user ${target.email}`,
       meta: { user_id: userId, email: target.email },
     })
+    await notifySuperAdmins(user.id, 'ความเคลื่อนไหวผู้ใช้งาน', `${user.name}: ลบผู้ใช้ ${target.email}`, 'activity-user.deleted')
 
     return jsonResponse({ success: true, userId })
   } catch (error) {
