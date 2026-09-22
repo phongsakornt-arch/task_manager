@@ -117,6 +117,40 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'search_meetings',
+      description: 'ค้นหาการประชุม/เช็คชื่อเข้าประชุม จากชื่อเรื่อง แท็ก หรือช่วงวันที่ — ใช้เมื่อผู้ใช้ถามเรื่องประชุม เช่น "มีประชุมอะไรบ้าง", "ประชุมนี้มีใครเข้าบ้าง"',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'คำค้นหาชื่อเรื่อง/แท็ก เว้นว่างได้' },
+          dateFrom: { type: 'string', description: 'YYYY-MM-DD เว้นว่างได้' },
+          dateTo: { type: 'string', description: 'YYYY-MM-DD เว้นว่างได้' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_meeting',
+      description: 'ดูรายละเอียดประชุมเต็มๆ พร้อมสรุปว่าใครตอบเข้าร่วม/ลา จาก meeting id (ได้จาก search_meetings ก่อน)',
+      parameters: { type: 'object', properties: { meetingId: { type: 'string' } }, required: ['meetingId'] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_users',
+      description: 'ค้นหาผู้ใช้งานระบบ (ไม่ใช่สมาชิกในทำเนียบ) พร้อมบทบาท/สิทธิ์ — ใช้เฉพาะเมื่อผู้ใช้ถามเรื่องบัญชีผู้ใช้/สิทธิ์การเข้าถึงระบบเท่านั้น ต้องเป็น admin/super_admin เท่านั้นถึงจะดูได้ ถ้าไม่มีสิทธิ์เครื่องมือจะตอบ error กลับมา ให้แจ้งผู้ใช้ตามนั้น',
+      parameters: {
+        type: 'object',
+        properties: { query: { type: 'string', description: 'คำค้นหาชื่อ/อีเมล เว้นว่างได้ถ้าจะดูทั้งหมด' } },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'search_members',
       description: 'ค้นหาสมาชิก/กรรมการในทำเนียบ (Directory) จากชื่อ ชื่อเล่น ตำแหน่ง จังหวัด หรือชื่อคณะกรรมการ — ใช้เมื่อผู้ใช้ถามถึงคน/สมาชิก/กรรมการ เช่น "ใครคือ...", "ติดต่อ...ยังไง", "กรรมการชุดไหนบ้าง" (คนละระบบกับ tasks/budget)',
       parameters: {
@@ -213,6 +247,13 @@ ${sectionList}
 - ถามเรื่องเอกสารอนุมัติ/สถานะการอนุมัติ (รออนุมัติอะไรบ้าง, เอกสารนี้ถึงใครแล้ว)
   → เรียก search_approvals/get_approval (get_approval จะบอกลำดับผู้อนุมัติแต่ละ
   คนและสถานะ ใช้ตอบว่า "ตอนนี้รอ [ชื่อ] คนที่ [ลำดับ] อนุมัติอยู่" ได้)
+- ถามเรื่องประชุม/เช็คชื่อเข้าประชุม (มีประชุมอะไรบ้าง, ใครเข้าประชุมนี้บ้าง,
+  ใครลา) → เรียก search_meetings/get_meeting
+- ถามเรื่องปฏิทิน/นัดหมาย (มีนัดวันไหนบ้าง) → ใช้ search_tasks พร้อม dateFrom/
+  dateTo เพราะปฏิทินในระบบคือมุมมองงานที่มีวันที่ ไม่ใช่ข้อมูลแยกต่างหาก
+- ถามเรื่องบัญชีผู้ใช้ระบบ/สิทธิ์การเข้าถึง (ไม่ใช่สมาชิกในทำเนียบ) → เรียก
+  search_users (เครื่องมือนี้จะปฏิเสธเองถ้าคนถามไม่ใช่ admin/super_admin — ถ้า
+  ได้ error สิทธิ์กลับมาให้บอกผู้ใช้ตรงๆ ว่าไม่มีสิทธิ์ดูข้อมูลนี้)
 
 แยกให้ถูกระหว่าง 2 อย่างนี้:
 - "งาน" ของทีม (propose_create_task) — ทุกคนในทีมเห็น เหมาะกับโปรเจกต์/กิจกรรม
@@ -349,6 +390,54 @@ async function execGetApproval(supabase: SupabaseClient, args: { approvalId?: st
     .eq('approval_id', args.approvalId)
     .order('order_no', { ascending: true })
   return { document: doc, approvers: approvers ?? [] }
+}
+
+async function execSearchMeetings(supabase: SupabaseClient, args: { query?: string; dateFrom?: string; dateTo?: string }) {
+  let q = supabase.from('meetings').select('id, title, tag, date, time, location, format').limit(15)
+  if (args.query?.trim()) q = q.or(`title.ilike.%${args.query.trim()}%,tag.ilike.%${args.query.trim()}%`)
+  if (args.dateFrom) q = q.gte('date', args.dateFrom)
+  if (args.dateTo) q = q.lte('date', args.dateTo)
+  q = q.order('date', { ascending: false })
+  const { data, error } = await q
+  if (error) return { error: error.message }
+  return { count: data?.length ?? 0, meetings: data ?? [] }
+}
+
+async function execGetMeeting(supabase: SupabaseClient, args: { meetingId?: string }) {
+  if (!args.meetingId) return { error: 'missing meetingId' }
+  const { data: meeting, error } = await supabase
+    .from('meetings').select('id, title, tag, date, time, location, format').eq('id', args.meetingId).single()
+  if (error || !meeting) return { error: error?.message ?? 'ไม่พบประชุมนี้' }
+  const { data: invited } = await supabase.from('meeting_members').select('member_id').eq('meeting_id', args.meetingId)
+  const { data: responses } = await supabase
+    .from('meeting_responses')
+    .select('member_id, status, attend_mode, members(name_th)')
+    .eq('meeting_id', args.meetingId)
+  const going = (responses ?? []).filter((r) => r.status === 'going')
+  const leave = (responses ?? []).filter((r) => r.status === 'leave')
+  const respondedIds = new Set((responses ?? []).map((r) => r.member_id))
+  const noResponseCount = (invited ?? []).filter((m) => !respondedIds.has(m.member_id)).length
+  return {
+    meeting,
+    invitedCount: invited?.length ?? 0,
+    goingCount: going.length,
+    leaveCount: leave.length,
+    noResponseCount,
+    going: going.map((r) => (r.members as { name_th?: string } | null)?.name_th ?? '?'),
+    leave: leave.map((r) => (r.members as { name_th?: string } | null)?.name_th ?? '?'),
+  }
+}
+
+async function execSearchUsers(supabase: SupabaseClient, requesterRole: string, args: { query?: string }) {
+  if (!['admin', 'super_admin'].includes(requesterRole)) {
+    return { error: 'ไม่มีสิทธิ์ดูรายชื่อผู้ใช้งานระบบ (ต้องเป็น admin ขึ้นไป)' }
+  }
+  let q = supabase.from('users').select('id, email, name, role, active, last_login').limit(30)
+  if (args.query?.trim()) q = q.or(`name.ilike.%${args.query.trim()}%,email.ilike.%${args.query.trim()}%`)
+  q = q.order('name')
+  const { data, error } = await q
+  if (error) return { error: error.message }
+  return { count: data?.length ?? 0, users: data ?? [] }
 }
 
 async function execSearchMembers(supabase: SupabaseClient, args: { query?: string; committee?: string }) {
@@ -538,6 +627,9 @@ Deno.serve(async (req) => {
         else if (call.function.name === 'search_todos') result = await execSearchTodos(supabase, user.id, args)
         else if (call.function.name === 'search_approvals') result = await execSearchApprovals(supabase, args)
         else if (call.function.name === 'get_approval') result = await execGetApproval(supabase, args)
+        else if (call.function.name === 'search_meetings') result = await execSearchMeetings(supabase, args)
+        else if (call.function.name === 'get_meeting') result = await execGetMeeting(supabase, args)
+        else if (call.function.name === 'search_users') result = await execSearchUsers(supabase, user.role, args)
         else if (call.function.name === 'summarize_attachment') result = await execSummarizeAttachment(args)
         else if (call.function.name === 'propose_create_task') {
           proposedAction = { type: 'create_task', payload: args }
