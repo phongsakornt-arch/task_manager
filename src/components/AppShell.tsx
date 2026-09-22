@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { canViewUsers, canManageSystem, canEditMeetings } from '../lib/permissions'
 import { getExistingSubscription, isPushSupported, subscribeToPush, unsubscribeFromPush } from '../lib/push'
+import AIAssistant from './AIAssistant'
 
 const navItems = [
   { to: '/',          icon: '▦', label: 'Board' },
@@ -275,6 +276,7 @@ export default function AppShell() {
         </main>
       </div>
       </div>
+      <AIAssistant />
     </div>
   )
 }
