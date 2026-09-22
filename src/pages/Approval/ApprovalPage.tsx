@@ -1036,8 +1036,17 @@ export default function ApprovalPage() {
                                           setApprovers(prev => prev.map(item => item.id === approver.id ? { ...item, name: e.target.value } : item))
                                         }
                                       }}
-                                      onFocus={() => { setApproverSearchId(approver.id); setApproverSearchText('') }}
-                                      placeholder="ค้นหาชื่อ..."
+                                      onFocus={() => { setApproverSearchId(approver.id); setApproverSearchText(approver.name) }}
+                                      onBlur={() => {
+                                        // ออกจากช่องโดยไม่ได้เลือกจาก dropdown — เก็บชื่อที่พิมพ์เองไว้
+                                        // (ผู้อนุมัติไม่จำเป็นต้องมีอยู่ในระบบสมาชิกก็ได้)
+                                        if (approverSearchId === approver.id) {
+                                          setApprovers(prev => prev.map(item => item.id === approver.id ? { ...item, name: approverSearchText.trim() } : item))
+                                          setApproverSearchId(null)
+                                          setApproverSearchText('')
+                                        }
+                                      }}
+                                      placeholder="ชื่อผู้อนุมัติ (ค้นหาหรือพิมพ์เองก็ได้)"
                                       style={{ ...inputStyle, fontSize: 13 }}
                                       autoComplete="off"
                                     />
