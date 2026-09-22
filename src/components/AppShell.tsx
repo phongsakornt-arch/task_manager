@@ -38,15 +38,19 @@ export default function AppShell() {
   }
 
   return (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
       {/* Mobile top bar — hamburger + logo, only shown below md.
+          Deliberately NOT position:fixed: it sits in normal document flow,
+          stacked above the row below, so it always pushes content down by
+          its own real height with no padding-offset math that can drift
+          out of sync (that mismatch was the cause of the header-overlap bug).
           display must come from the className (not inline style), since an
           inline `display` would always beat the md:hidden media-query class. */}
       <div
         className="flex md:hidden"
         style={{
-          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 30,
+          flexShrink: 0, zIndex: 30,
           alignItems: 'center', gap: 10,
           padding: '10px 14px', height: 52,
           background: 'linear-gradient(135deg, #0d1b3e 0%, #1e3a6e 100%)',
@@ -68,6 +72,9 @@ export default function AppShell() {
         }}>Y</div>
         <div style={{ fontFamily: 'Anuphan, sans-serif', fontWeight: 600, fontSize: 14, color: '#fff' }}>YEC Task Manager</div>
       </div>
+
+      {/* Row: sidebar + main content, fills remaining height below the mobile top bar */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
       {/* Backdrop for mobile drawer */}
       {mobileNavOpen && (
@@ -212,10 +219,11 @@ export default function AppShell() {
       </aside>
 
       {/* Main content */}
-      <div className="pt-[52px] md:pt-0" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
         <main style={{ flex: 1, overflow: 'hidden' }}>
           <Outlet />
         </main>
+      </div>
       </div>
     </div>
   )

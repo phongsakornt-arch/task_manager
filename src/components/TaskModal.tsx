@@ -93,7 +93,11 @@ function formatDateTime(value?: string) {
 
 async function fileToAttachment(file: File): Promise<Attachment> {
   const id = crypto.randomUUID()
-  const safeName = file.name.replace(/[^a-zA-Z0-9ก-๙._-]/g, '_')
+  // Supabase Storage object keys reject non-ASCII (e.g. Thai) characters,
+  // so the storage path must be ASCII-safe — the original Thai name is
+  // preserved separately below via `name: file.name` for display.
+  const ext = file.name.includes('.') ? file.name.split('.').pop()!.replace(/[^a-zA-Z0-9]/g, '') : ''
+  const safeName = ext ? `file.${ext}` : 'file'
   const path = `${id}/${safeName}`
 
   const { error } = await supabase.storage.from('task-attachments').upload(path, file, {
