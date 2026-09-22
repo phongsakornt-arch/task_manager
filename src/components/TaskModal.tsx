@@ -212,6 +212,7 @@ export default function TaskModal({ task, defaultSectionId, defaultParentTaskId,
   const [attachments, setAttachments] = useState<Attachment[]>(toArray(task?.attachments as Attachment[] | Record<string, Attachment>))
   const [driveFolderUrl, setDriveFolderUrl] = useState(task?.drive_folder_url ?? '')
   const [completedState, setCompletedState] = useState(task?.completed ?? false)
+  const [inviteToast, setInviteToast] = useState<string | null>(null)
   const [newChecklist, setNewChecklist] = useState('')
   const [linkName, setLinkName] = useState('')
   const [linkUrl, setLinkUrl] = useState('')
@@ -646,7 +647,10 @@ export default function TaskModal({ task, defaultSectionId, defaultParentTaskId,
       const fresh = await refreshTask(task.id)
       if (fresh) updateTask(task.id, fresh)
       setError('')
-      setMessage(`ส่งนัดหมายผ่าน Google Calendar ให้กรรมการ ${data.attendeeCount ?? attendeeEmails.length} รายการแล้ว ไม่ต้องเปิดหน้า Google Calendar`)
+      const count = data.attendeeCount ?? attendeeEmails.length
+      setMessage(`ส่งนัดหมายผ่าน Google Calendar ให้กรรมการ ${count} รายการแล้ว ไม่ต้องเปิดหน้า Google Calendar`)
+      setInviteToast(`✅ ส่งนัดหมายสำเร็จ! แจ้งกรรมการ ${count} คนแล้ว`)
+      setTimeout(() => setInviteToast(null), 4500)
       return
     }
 
@@ -681,6 +685,24 @@ export default function TaskModal({ task, defaultSectionId, defaultParentTaskId,
 
   return (
     <div style={backdropStyle} onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
+      {inviteToast && (
+        <div
+          style={{
+            position: 'fixed', top: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1200,
+            background: '#047857', color: '#fff', padding: '14px 20px', borderRadius: 14,
+            boxShadow: '0 16px 40px rgba(4,120,87,0.35)', display: 'flex', alignItems: 'center', gap: 12,
+            fontFamily: FONT, fontWeight: 800, fontSize: 14, maxWidth: 'calc(100vw - 32px)',
+          }}
+        >
+          <span style={{ flex: 1, minWidth: 0 }}>{inviteToast}</span>
+          <button
+            onClick={() => setInviteToast(null)}
+            style={{ flexShrink: 0, border: 'none', background: 'rgba(255,255,255,0.2)', borderRadius: 8, width: 24, height: 24, color: '#fff', cursor: 'pointer', fontSize: 14 }}
+          >
+            ×
+          </button>
+        </div>
+      )}
       <div style={{ ...modalStyle, borderTopColor: isSubtask ? '#7c3aed' : '#1d4ed8' }}>
         <header style={headerStyle}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -720,10 +742,30 @@ export default function TaskModal({ task, defaultSectionId, defaultParentTaskId,
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
                 <Field label="Section"><select value={sectionId} onChange={event => setSectionId(event.target.value)} style={inputStyle}>{sections.map(section => <option key={section.id} value={section.id}>{section.title}</option>)}</select></Field>
                 <Field label="ประเภทงาน"><select value={taskTypeId} onChange={event => setTaskTypeId(event.target.value)} style={inputStyle}><option value="">เลือกประเภทงาน</option>{taskTypes.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}</select></Field>
-                <Field label="วันเริ่ม"><input type="date" value={startDate} onChange={event => setStartDate(event.target.value)} style={inputStyle} /></Field>
-                <Field label="วันจบ"><input type="date" value={endDate} onChange={event => setEndDate(event.target.value)} style={inputStyle} /></Field>
-                <Field label="เวลาเริ่ม"><input value={startTime} onChange={event => setStartTime(event.target.value)} onBlur={event => setStartTime(normalizeTime(event.target.value))} placeholder="09:00" style={inputStyle} /></Field>
-                <Field label="เวลาจบ"><input value={endTime} onChange={event => setEndTime(event.target.value)} onBlur={event => setEndTime(normalizeTime(event.target.value))} placeholder="17:00" style={inputStyle} /></Field>
+                <Field label="วันเริ่ม">
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input type="date" value={startDate} onChange={event => setStartDate(event.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
+                    {startDate && <button type="button" onClick={() => setStartDate('')} title="ลบวันที่" style={clearFieldButtonStyle}>×</button>}
+                  </div>
+                </Field>
+                <Field label="วันจบ">
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input type="date" value={endDate} onChange={event => setEndDate(event.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
+                    {endDate && <button type="button" onClick={() => setEndDate('')} title="ลบวันที่" style={clearFieldButtonStyle}>×</button>}
+                  </div>
+                </Field>
+                <Field label="เวลาเริ่ม">
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input value={startTime} onChange={event => setStartTime(event.target.value)} onBlur={event => setStartTime(normalizeTime(event.target.value))} placeholder="09:00" style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
+                    {startTime && <button type="button" onClick={() => setStartTime('')} title="ลบเวลา" style={clearFieldButtonStyle}>×</button>}
+                  </div>
+                </Field>
+                <Field label="เวลาจบ">
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input value={endTime} onChange={event => setEndTime(event.target.value)} onBlur={event => setEndTime(normalizeTime(event.target.value))} placeholder="17:00" style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
+                    {endTime && <button type="button" onClick={() => setEndTime('')} title="ลบเวลา" style={clearFieldButtonStyle}>×</button>}
+                  </div>
+                </Field>
               </div>
               <Field label="รายละเอียด"><textarea value={description} onChange={event => setDescription(event.target.value)} rows={4} placeholder="เพิ่มรายละเอียด..." style={{ ...inputStyle, minHeight: 110, paddingTop: 12, resize: 'vertical' }} /></Field>
 
@@ -951,6 +993,7 @@ const headerStyle: CSSProperties = { padding: '22px 26px 18px', borderBottom: '1
 const titleStyle: CSSProperties = { margin: 0, fontFamily: FONT, fontSize: 25, lineHeight: 1.25, color: '#0f172a' }
 const closeButtonStyle: CSSProperties = { width: 38, height: 38, border: 'none', borderRadius: 999, background: '#f8fafc', color: '#94a3b8', cursor: 'pointer', fontSize: 20, lineHeight: 1 }
 const inputStyle: CSSProperties = { width: '100%', minHeight: 44, border: '1.5px solid #dbe4ee', borderRadius: 12, background: '#fff', color: '#0f172a', outline: 'none', padding: '0 12px', fontFamily: FONT, fontSize: 14 }
+const clearFieldButtonStyle: CSSProperties = { flexShrink: 0, width: 40, minHeight: 44, border: '1.5px solid #fecaca', borderRadius: 12, background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontSize: 16, fontWeight: 800 }
 const sectionStyle: CSSProperties = { border: '1px solid #e2e8f0', borderRadius: 16, background: '#fff', padding: 16 }
 const sectionTitleStyle: CSSProperties = { margin: '0 0 10px', fontFamily: FONT, fontSize: 14, fontWeight: 900, color: '#334155' }
 const subLabelStyle: CSSProperties = { margin: '3px 0 8px', color: '#64748b', fontSize: 12.5, fontWeight: 900 }
