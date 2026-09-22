@@ -73,6 +73,20 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'search_members',
+      description: 'ค้นหาสมาชิก/กรรมการในทำเนียบ (Directory) จากชื่อ ชื่อเล่น ตำแหน่ง จังหวัด หรือชื่อคณะกรรมการ — ใช้เมื่อผู้ใช้ถามถึงคน/สมาชิก/กรรมการ เช่น "ใครคือ...", "ติดต่อ...ยังไง", "กรรมการชุดไหนบ้าง" (คนละระบบกับ tasks/budget)',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'คำค้นหาชื่อ/ชื่อเล่น/ตำแหน่ง/จังหวัด เว้นว่างได้ถ้าจะกรองแค่คณะกรรมการ' },
+          committee: { type: 'string', description: 'ชื่อหรือรหัสคณะกรรมการ เว้นว่างได้' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'summarize_attachment',
       description: 'อ่านและสรุปเนื้อหาไฟล์แนบ (รูปภาพหรือ PDF) จาก URL ของไฟล์',
       parameters: {
@@ -144,6 +158,10 @@ ${sectionList}
 - ถามเรื่องงบประมาณ (ใช้ไปเท่าไหร่, โครงการไหนเกินงบ ฯลฯ) → เรียก
   search_budget_projects/get_budget_project (คนละระบบกับ "งาน" — งบประมาณอยู่
   ในตาราง budget_projects ไม่ใช่ tasks ห้ามไปค้นด้วย search_tasks)
+- ถามเรื่องคน/สมาชิก/กรรมการ/ทำเนียบ (ใครคือ..., ติดต่อ...ยังไง, กรรมการชุดไหน
+  บ้าง) → เรียก search_members (คนละระบบกับ tasks และ budget_projects — ห้ามไป
+  ค้นด้วย search_tasks หรือเดาว่าไม่มีข้อมูลติดต่อ ต้องเรียก search_members ก่อน
+  เสมอ)
 
 แยกให้ถูกระหว่าง 2 อย่างนี้:
 - "งาน" ของทีม (propose_create_task) — ทุกคนในทีมเห็น เหมาะกับโปรเจกต์/กิจกรรม
@@ -234,6 +252,39 @@ async function execGetBudgetProject(supabase: SupabaseClient, args: { projectId?
   const actualExpense = (txs ?? []).filter((t) => t.kind === 'expense').reduce((sum, t) => sum + Number(t.amount), 0)
   const actualRevenue = (txs ?? []).filter((t) => t.kind === 'revenue').reduce((sum, t) => sum + Number(t.amount), 0)
   return { project, actualExpense, actualRevenue, transactions: txs ?? [] }
+}
+
+async function execSearchMembers(supabase: SupabaseClient, args: { query?: string; committee?: string }) {
+  let q = supabase
+    .from('members')
+    .select('id, name_th, name_en, nickname, position_committee, position_yec, province, email, phone, committees(name, name_en, code)')
+    .eq('active', true)
+    .limit(20)
+  if (args.query?.trim()) {
+    const term = args.query.trim()
+    q = q.or(
+      `name_th.ilike.%${term}%,name_en.ilike.%${term}%,nickname.ilike.%${term}%,`
+      + `position_committee.ilike.%${term}%,position_yec.ilike.%${term}%,province.ilike.%${term}%`,
+    )
+  }
+  const { data, error } = await q
+  if (error) return { error: error.message }
+  let members = data ?? []
+  if (args.committee?.trim()) {
+    const term = args.committee.trim().toLowerCase()
+    members = members.filter((m) => {
+      const c = m.committees as { name?: string; name_en?: string; code?: string } | null
+      return [c?.name, c?.name_en, c?.code].some((v) => v?.toLowerCase().includes(term))
+    })
+  }
+  return {
+    count: members.length,
+    members: members.map((m) => ({
+      id: m.id, name_th: m.name_th, name_en: m.name_en, nickname: m.nickname,
+      position_committee: m.position_committee, position_yec: m.position_yec, province: m.province,
+      email: m.email, phone: m.phone, committee: (m.committees as { name?: string } | null)?.name ?? null,
+    })),
+  }
 }
 
 async function execSummarizeAttachment(args: { url?: string; name?: string }) {
@@ -368,6 +419,7 @@ Deno.serve(async (req) => {
         else if (call.function.name === 'get_task') result = await execGetTask(supabase, args)
         else if (call.function.name === 'search_budget_projects') result = await execSearchBudgetProjects(supabase, args)
         else if (call.function.name === 'get_budget_project') result = await execGetBudgetProject(supabase, args)
+        else if (call.function.name === 'search_members') result = await execSearchMembers(supabase, args)
         else if (call.function.name === 'summarize_attachment') result = await execSummarizeAttachment(args)
         else if (call.function.name === 'propose_create_task') {
           proposedAction = { type: 'create_task', payload: args }
