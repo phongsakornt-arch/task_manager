@@ -258,6 +258,7 @@ export default function PendingPage() {
   const [dateFilter, setDateFilter] = useState<DateFilterKey>('all')
   const [search, setSearch] = useState('')
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [creatingParent, setCreatingParent] = useState<Task | null>(null)
   const [taskLoadError, setTaskLoadError] = useState<string | null>(null)
   const { user } = useAuthStore()
   const canEdit = canEditTasks(user?.role)
@@ -297,10 +298,17 @@ export default function PendingPage() {
       return
     }
     setSelectedTask(data as Task)
+    setCreatingParent(null)
+  }
+
+  const openCreateSubtask = (task: Task) => {
+    setSelectedTask(null)
+    setCreatingParent(task)
   }
 
   const closeTask = () => {
     setSelectedTask(null)
+    setCreatingParent(null)
     loadPendingTasks()
   }
 
@@ -541,11 +549,16 @@ export default function PendingPage() {
         )}
       </div>
 
-      {selectedTask && (
+      {(selectedTask || creatingParent) && (
         <TaskModal
+          key={selectedTask?.id ?? `new-${creatingParent?.id ?? ''}`}
           task={selectedTask}
+          defaultSectionId={creatingParent?.section_id}
+          defaultParentTaskId={creatingParent?.id}
           canEdit={canEdit}
           canDelete={canDelete}
+          onCreateSubtask={openCreateSubtask}
+          onOpenTask={task => { setSelectedTask(task); setCreatingParent(null) }}
           onClose={closeTask}
         />
       )}

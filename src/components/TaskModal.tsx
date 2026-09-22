@@ -211,6 +211,7 @@ export default function TaskModal({ task, defaultSectionId, defaultParentTaskId,
   const [checklist, setChecklist] = useState<ChecklistItem[]>(toArray(task?.checklist as ChecklistItem[] | Record<string, ChecklistItem>))
   const [attachments, setAttachments] = useState<Attachment[]>(toArray(task?.attachments as Attachment[] | Record<string, Attachment>))
   const [driveFolderUrl, setDriveFolderUrl] = useState(task?.drive_folder_url ?? '')
+  const [completedState, setCompletedState] = useState(task?.completed ?? false)
   const [newChecklist, setNewChecklist] = useState('')
   const [linkName, setLinkName] = useState('')
   const [linkUrl, setLinkUrl] = useState('')
@@ -640,8 +641,9 @@ export default function TaskModal({ task, defaultSectionId, defaultParentTaskId,
 
   const toggleComplete = async () => {
     if (!task?.id || !canEdit) return
-    const completed = !task.completed
+    const completed = !completedState
     const completed_at = completed ? new Date().toISOString() : null
+    setCompletedState(completed)
     updateTask(task.id, { completed, completed_at: completed_at ?? undefined })
     await supabase.from('tasks').update({ completed, completed_at }).eq('id', task.id)
     await logActivity(user, completed ? 'task.completed' : 'task.reopened', completed ? `Completed task: ${task.title}` : `Reopened task: ${task.title}`, { task_id: task.id })
@@ -782,7 +784,7 @@ export default function TaskModal({ task, defaultSectionId, defaultParentTaskId,
         <footer style={footerStyle}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {isEdit && canEdit && readOnly && <button onClick={() => setEditing(true)} style={primaryButtonStyle}>แก้ไข</button>}
-            {isEdit && canEdit && <button onClick={toggleComplete} style={task?.completed ? secondaryButtonStyle : successButtonStyle}>{task?.completed ? 'เปิดงานอีกครั้ง' : 'Complete'}</button>}
+            {isEdit && canEdit && <button onClick={toggleComplete} style={completedState ? secondaryButtonStyle : successButtonStyle}>{completedState ? 'เปิดงานอีกครั้ง' : 'Complete'}</button>}
             {isEdit && task && <button onClick={() => onCreateSubtask?.(task)} style={purpleButtonStyle}>+ เพิ่ม Subtask</button>}
             {isEdit && <button disabled={busy === 'line'} onClick={createLineMessage} style={linePreview ? successButtonStyle : lineButtonStyle}>{busy === 'line' ? 'กำลังสร้าง LINE...' : linePreview ? '✓ สร้าง LINE แล้ว' : '💬 สร้างข้อความ LINE'}</button>}
             {isEdit && <button disabled={busy === 'invite'} onClick={sendCalendarInvite} style={googleCalButtonStyle}>{busy === 'invite' ? 'กำลังเปิด Calendar...' : `📅 ส่งนัดหมาย${attendeeEmails.length ? ` (${attendeeEmails.length})` : ''}`}</button>}
