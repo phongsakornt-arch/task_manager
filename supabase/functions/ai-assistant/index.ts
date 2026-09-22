@@ -206,9 +206,11 @@ Deno.serve(async (req) => {
     // หรือ deprecate ไปแล้ว — เหมือนแพทเทิร์นที่ใช้ในฟังก์ชัน AI อื่นของระบบนี้
     const providers: { baseUrl: string; key: string; model: string }[] = []
     if (groqKey) {
+      // llama-3.3-70b-versatile / llama-3.1-8b-instant 404 บน account นี้แล้ว
+      // (Groq เปลี่ยน/ถอด model บ่อย) — ใช้ตัวเดียวกับที่ ai-task-parse ยืนยันว่าใช้ได้จริงก่อน
       providers.push(
+        { baseUrl: 'https://api.groq.com/openai/v1/chat/completions', key: groqKey, model: 'meta-llama/llama-4-scout-17b-16e-instruct' },
         { baseUrl: 'https://api.groq.com/openai/v1/chat/completions', key: groqKey, model: 'llama-3.3-70b-versatile' },
-        { baseUrl: 'https://api.groq.com/openai/v1/chat/completions', key: groqKey, model: 'llama-3.1-8b-instant' },
       )
     }
     if (openaiKey) providers.push({ baseUrl: 'https://api.openai.com/v1/chat/completions', key: openaiKey, model: 'gpt-4o-mini' })
