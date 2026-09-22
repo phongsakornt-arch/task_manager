@@ -54,6 +54,25 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'search_budget_projects',
+      description: 'ค้นหาโครงการในระบบงบประมาณ จากชื่อโครงการ/รหัสหน่วยงาน/รหัสงบ — ใช้เมื่อผู้ใช้ถามเรื่องงบประมาณ/ใช้ไปเท่าไหร่/โครงการไหนใช้งบเกิน ฯลฯ (คนละระบบกับ "งาน" ใน search_tasks)',
+      parameters: {
+        type: 'object',
+        properties: { query: { type: 'string', description: 'คำค้นหาชื่อโครงการ/หน่วยงาน เว้นว่างได้ถ้าจะดูทั้งหมด' } },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_budget_project',
+      description: 'ดูรายละเอียดงบประมาณของโครงการเต็มๆ (แผนงบ vs ใช้จริง, รายการธุรกรรม) จาก project id (ได้จาก search_budget_projects ก่อน)',
+      parameters: { type: 'object', properties: { projectId: { type: 'string' } }, required: ['projectId'] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'summarize_attachment',
       description: 'อ่านและสรุปเนื้อหาไฟล์แนบ (รูปภาพหรือ PDF) จาก URL ของไฟล์',
       parameters: {
@@ -117,11 +136,14 @@ async function buildSystemPrompt(supabase: SupabaseClient) {
 รายการ Section ที่มีอยู่ในระบบ (ใช้ตอนค้นหา/เสนอสร้างงาน):
 ${sectionList}
 
-กติกาสำคัญที่สุด: คุณ**ไม่มีข้อมูลงานในระบบติดตัวเลย** ห้ามเดา/สรุปว่ามีงานอะไรบ้าง
-หรือไม่มีงานเลยจากความจำเด็ดขาด — ทุกครั้งที่ผู้ใช้ถามอะไรที่เกี่ยวกับงานจริงใน
-ระบบ (ค้นหา, มีงานอะไรบ้าง, งานนี้คืออะไร ฯลฯ) **ต้องเรียก search_tasks หรือ
-get_task ก่อนเสมอ** แล้วค่อยตอบจากผลลัพธ์ที่ได้กลับมาเท่านั้น ถ้าเรียกแล้ว
-count เป็น 0 ค่อยบอกผู้ใช้ว่าไม่พบจริงๆ
+กติกาสำคัญที่สุด: คุณ**ไม่มีข้อมูลอะไรในระบบติดตัวเลย** ห้ามเดา/สรุปว่ามีอะไร
+บ้างหรือไม่มีเลยจากความจำเด็ดขาด — ทุกครั้งที่ผู้ใช้ถามอะไรที่เกี่ยวกับข้อมูล
+จริงในระบบ ต้องเรียกเครื่องมือก่อนเสมอแล้วค่อยตอบจากผลลัพธ์ที่ได้กลับมา
+เท่านั้น ถ้าเรียกแล้วไม่พบข้อมูลจริงๆ ค่อยบอกผู้ใช้ตามนั้น:
+- ถามเรื่องงาน (ค้นหา, มีงานอะไรบ้าง, งานนี้คืออะไร) → เรียก search_tasks/get_task
+- ถามเรื่องงบประมาณ (ใช้ไปเท่าไหร่, โครงการไหนเกินงบ ฯลฯ) → เรียก
+  search_budget_projects/get_budget_project (คนละระบบกับ "งาน" — งบประมาณอยู่
+  ในตาราง budget_projects ไม่ใช่ tasks ห้ามไปค้นด้วย search_tasks)
 
 แยกให้ถูกระหว่าง 2 อย่างนี้:
 - "งาน" ของทีม (propose_create_task) — ทุกคนในทีมเห็น เหมาะกับโปรเจกต์/กิจกรรม
@@ -169,6 +191,49 @@ async function execGetTask(supabase: SupabaseClient, args: { taskId?: string }) 
     .single()
   if (error || !data) return { error: error?.message ?? 'ไม่พบงานนี้' }
   return data
+}
+
+async function execSearchBudgetProjects(supabase: SupabaseClient, args: { query?: string }) {
+  let q = supabase.from('budget_projects').select('id, project_name, department_code, budget_filter, planned_revenue, planned_expense').neq('status', 'deleted').limit(15)
+  if (args.query?.trim()) q = q.or(`project_name.ilike.%${args.query.trim()}%,department_code.ilike.%${args.query.trim()}%,budget_filter.ilike.%${args.query.trim()}%`)
+  const { data: projects, error } = await q
+  if (error) return { error: error.message }
+  if (!projects?.length) return { count: 0, projects: [] }
+
+  const ids = projects.map((p) => p.id)
+  const { data: txs } = await supabase.from('budget_transactions').select('project_id, kind, amount').in('project_id', ids).eq('deleted', false)
+  const actualByProject = new Map<string, { revenue: number; expense: number }>()
+  for (const t of txs ?? []) {
+    const cur = actualByProject.get(t.project_id) ?? { revenue: 0, expense: 0 }
+    if (t.kind === 'revenue') cur.revenue += Number(t.amount)
+    else cur.expense += Number(t.amount)
+    actualByProject.set(t.project_id, cur)
+  }
+
+  return {
+    count: projects.length,
+    projects: projects.map((p) => ({
+      id: p.id, project_name: p.project_name, department_code: p.department_code, budget_filter: p.budget_filter,
+      planned_expense: p.planned_expense, actual_expense: actualByProject.get(p.id)?.expense ?? 0,
+      planned_revenue: p.planned_revenue, actual_revenue: actualByProject.get(p.id)?.revenue ?? 0,
+    })),
+  }
+}
+
+async function execGetBudgetProject(supabase: SupabaseClient, args: { projectId?: string }) {
+  if (!args.projectId) return { error: 'missing projectId' }
+  const { data: project, error } = await supabase.from('budget_projects').select('*').eq('id', args.projectId).single()
+  if (error || !project) return { error: error?.message ?? 'ไม่พบโครงการนี้' }
+  const { data: txs } = await supabase
+    .from('budget_transactions')
+    .select('transaction_date, kind, amount, vendor, description, accounting_code')
+    .eq('project_id', args.projectId)
+    .eq('deleted', false)
+    .order('transaction_date', { ascending: false })
+    .limit(30)
+  const actualExpense = (txs ?? []).filter((t) => t.kind === 'expense').reduce((sum, t) => sum + Number(t.amount), 0)
+  const actualRevenue = (txs ?? []).filter((t) => t.kind === 'revenue').reduce((sum, t) => sum + Number(t.amount), 0)
+  return { project, actualExpense, actualRevenue, transactions: txs ?? [] }
 }
 
 async function execSummarizeAttachment(args: { url?: string; name?: string }) {
@@ -301,6 +366,8 @@ Deno.serve(async (req) => {
         let result: unknown
         if (call.function.name === 'search_tasks') result = await execSearchTasks(supabase, args)
         else if (call.function.name === 'get_task') result = await execGetTask(supabase, args)
+        else if (call.function.name === 'search_budget_projects') result = await execSearchBudgetProjects(supabase, args)
+        else if (call.function.name === 'get_budget_project') result = await execGetBudgetProject(supabase, args)
         else if (call.function.name === 'summarize_attachment') result = await execSummarizeAttachment(args)
         else if (call.function.name === 'propose_create_task') {
           proposedAction = { type: 'create_task', payload: args }
