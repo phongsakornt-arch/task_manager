@@ -1,4 +1,5 @@
 import webpush from 'npm:web-push@3.6.7'
+import { Buffer } from 'node:buffer'
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
 import { requireUser, serviceClient } from '../_shared/auth.ts'
 
@@ -33,7 +34,9 @@ Deno.serve(async (req) => {
       .in('user_id', userIds)
     if (error) return jsonResponse({ error: error.message }, 400)
 
-    const payload = JSON.stringify({ title, body: body ?? '', url: url ?? '/', tag })
+    // ส่งเป็น Buffer ที่ระบุ utf-8 ชัดเจน — ส่ง string ตรงๆ ทำให้ข้อความภาษาไทย
+    // (นอก ASCII) เพี้ยนตอนเข้ารหัส payload บน Deno npm compat
+    const payload = Buffer.from(JSON.stringify({ title, body: body ?? '', url: url ?? '/', tag }), 'utf-8')
     let sent = 0
     const staleIds: string[] = []
 
