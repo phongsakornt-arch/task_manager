@@ -214,15 +214,15 @@ Deno.serve(async (req) => {
     if (openaiKey) providers.push({ baseUrl: 'https://api.openai.com/v1/chat/completions', key: openaiKey, model: 'gpt-4o-mini' })
 
     async function callChatWithFallback(messages: ChatMessage[]) {
-      let lastErr = 'ไม่พบ provider ที่ใช้งานได้'
+      const errors: string[] = []
       for (const p of providers) {
         try {
           return await callChat(p.baseUrl, p.key, p.model, messages)
         } catch (err) {
-          lastErr = err instanceof Error ? err.message : String(err)
+          errors.push(`${p.model}: ${err instanceof Error ? err.message : String(err)}`)
         }
       }
-      throw new Error(lastErr)
+      throw new Error(errors.join(' | ') || 'ไม่พบ provider ที่ใช้งานได้')
     }
 
     const systemPrompt = await buildSystemPrompt(supabase)
