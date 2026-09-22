@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import MeetingMemberPicker from '../../components/MeetingMemberPicker'
 import type { Committee, Member } from '../../types'
@@ -47,14 +47,26 @@ function formatThaiDateShort(dateStr?: string | null) {
   return new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }).format(d)
 }
 
+function displayName(m: Member) {
+  return m.nickname ? `${m.name_th} (${m.nickname})` : m.name_th
+}
+
+interface ResponseRow {
+  meeting_id: string
+  member_id: string
+  status: 'going' | 'leave'
+  attend_mode?: 'onsite' | 'online' | null
+}
+
 export default function CheckInAdminPage() {
   const [meetings, setMeetings] = useState<Meeting[]>([])
   const [members, setMembers] = useState<Member[]>([])
   const [committees, setCommittees] = useState<Committee[]>([])
   const [meetingMemberIds, setMeetingMemberIds] = useState<Record<string, string[]>>({})
-  const [counts, setCounts] = useState<Record<string, { going: number; leave: number }>>({})
+  const [responsesByMeeting, setResponsesByMeeting] = useState<Record<string, ResponseRow[]>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState('')
 
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<MeetingForm>(EMPTY_FORM)
@@ -72,7 +84,7 @@ export default function CheckInAdminPage() {
       supabase.from('members').select('*').eq('active', true).order('name_th'),
       supabase.from('committees').select('*').eq('active', true).order('name'),
       supabase.from('meeting_members').select('meeting_id, member_id'),
-      supabase.from('meeting_responses').select('meeting_id, status'),
+      supabase.from('meeting_responses').select('meeting_id, member_id, status, attend_mode'),
     ])
     if (mt.error) setError(mt.error.message)
     setMeetings((mt.data ?? []) as Meeting[])
@@ -86,17 +98,22 @@ export default function CheckInAdminPage() {
     }
     setMeetingMemberIds(idsByMeeting)
 
-    const c: Record<string, { going: number; leave: number }> = {}
-    for (const r of rs.data ?? []) {
-      c[r.meeting_id] ??= { going: 0, leave: 0 }
-      if (r.status === 'going') c[r.meeting_id].going++
-      else if (r.status === 'leave') c[r.meeting_id].leave++
+    const byMeeting: Record<string, ResponseRow[]> = {}
+    for (const r of (rs.data ?? []) as ResponseRow[]) {
+      byMeeting[r.meeting_id] ??= []
+      byMeeting[r.meeting_id].push(r)
     }
-    setCounts(c)
+    setResponsesByMeeting(byMeeting)
     setLoading(false)
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  const memberById = useMemo(() => {
+    const map: Record<string, Member> = {}
+    for (const m of members) map[m.id] = m
+    return map
+  }, [members])
 
   function toggleForm() {
     setShowForm(v => {
@@ -263,10 +280,23 @@ export default function CheckInAdminPage() {
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
             {meetings.map(m => {
-              const c = counts[m.id] ?? { going: 0, leave: 0 }
-              const assignedTotal = meetingMemberIds[m.id]?.length ?? 0
-              const pending = Math.max(assignedTotal - c.going - c.leave, 0)
+              const responses = responsesByMeeting[m.id] ?? []
+              const respByMember: Record<string, ResponseRow> = {}
+              for (const r of responses) respByMember[r.member_id] = r
+              const assignedIds = meetingMemberIds[m.id] ?? []
+              const goingOnsite: Member[] = [], goingOnline: Member[] = [], leave: Member[] = [], pending: Member[] = []
+              for (const id of assignedIds) {
+                const member = memberById[id]
+                if (!member) continue
+                const r = respByMember[id]
+                if (r?.status === 'going') { if (r.attend_mode === 'online') goingOnline.push(member); else goingOnsite.push(member) }
+                else if (r?.status === 'leave') leave.push(member)
+                else pending.push(member)
+              }
+              const going = [...goingOnsite, ...goingOnline]
+              const c = { going: going.length, leave: leave.length }
               const formatMeta = FORMAT_OPTIONS.find(o => o.value === m.format) ?? FORMAT_OPTIONS[0]
+              const isExpanded = expandedId === m.id
               return (
                 <div key={m.id} style={{ background: '#fff', borderRadius: 16, boxShadow: SHADOW, border: '1px solid rgba(15,23,42,0.05)', padding: 16 }}>
                   <div className="flex flex-col sm:flex-row sm:items-start" style={{ gap: 12, justifyContent: 'space-between' }}>
@@ -303,10 +333,25 @@ export default function CheckInAdminPage() {
                   )}
 
                   <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-                    <Pill n={c.going} label="เข้าร่วม" bg="#f0fdf4" color="#047857" />
-                    <Pill n={c.leave} label="ลา" bg="#fef2f2" color="#b91c1c" />
-                    <Pill n={pending} label="ยังไม่ตอบ" bg="#f1f5f9" color="#64748b" />
+                    <Pill n={c.going} label="เข้าร่วม" bg="#f0fdf4" color="#047857" onClick={() => setExpandedId(isExpanded ? '' : m.id)} />
+                    <Pill n={c.leave} label="ลา" bg="#fef2f2" color="#b91c1c" onClick={() => setExpandedId(isExpanded ? '' : m.id)} />
+                    <Pill n={pending.length} label="ยังไม่ตอบ" bg="#f1f5f9" color="#64748b" onClick={() => setExpandedId(isExpanded ? '' : m.id)} />
                   </div>
+
+                  {isExpanded && (
+                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f1f5f9' }}>
+                      {m.format === 'hybrid' ? (
+                        <>
+                          <NameGroup title="เข้าร่วม (ที่สถานที่)" color="#059669" people={goingOnsite} />
+                          <NameGroup title="เข้าร่วม (ออนไลน์)" color="#059669" people={goingOnline} />
+                        </>
+                      ) : (
+                        <NameGroup title="เข้าร่วม" color="#059669" people={going} />
+                      )}
+                      <NameGroup title="ลา" color="#dc2626" people={leave} />
+                      <NameGroup title="ยังไม่ตอบ" color="#94a3b8" people={pending} muted />
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -337,10 +382,30 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
-function Pill({ n, label, bg, color }: { n: number; label: string; bg: string; color: string }) {
+function Pill({ n, label, bg, color, onClick }: { n: number; label: string; bg: string; color: string; onClick?: () => void }) {
   return (
-    <div style={{ flex: '1 1 90px', minWidth: 90, borderRadius: 10, padding: '6px 10px', textAlign: 'center', background: bg }}>
+    <button
+      type="button"
+      onClick={onClick}
+      style={{ flex: '1 1 90px', minWidth: 90, borderRadius: 10, padding: '6px 10px', textAlign: 'center', background: bg, border: 'none', cursor: onClick ? 'pointer' : 'default' }}
+    >
       <span style={{ fontFamily: FONT, fontWeight: 800, color }}>{n}</span> <span style={{ fontFamily: FONT, fontSize: 12, color }}>{label}</span>
+    </button>
+  )
+}
+
+function NameGroup({ title, color, people, muted }: { title: string; color: string; people: Member[]; muted?: boolean }) {
+  if (people.length === 0) return null
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontSize: 12, marginBottom: 6, color, fontWeight: 700, fontFamily: FONT }}>● {title} ({people.length})</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {people.map(p => (
+          <span key={p.id} style={{ fontSize: 12, padding: '4px 10px', borderRadius: 999, background: '#f8fafc', color: muted ? '#94a3b8' : '#334155', fontFamily: FONT }}>
+            {displayName(p)}
+          </span>
+        ))}
+      </div>
     </div>
   )
 }
