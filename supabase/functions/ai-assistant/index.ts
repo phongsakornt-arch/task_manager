@@ -73,6 +73,50 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'search_todos',
+      description: 'ค้นหา Todo ส่วนตัวของผู้ใช้ที่คุยอยู่ตอนนี้ (เห็นเฉพาะของตัวเอง) จากคำค้นในชื่อ/บันทึก และ/หรือสถานะ — ใช้เมื่อผู้ใช้ถามว่ามี todo อะไรบ้าง/ยังไม่ได้ทำอะไรบ้าง',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'คำค้นหา เว้นว่างได้ถ้าจะกรองแค่สถานะ' },
+          status: { type: 'string', enum: ['open', 'done', 'all'], description: 'กรองตามสถานะ default open' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_complete_todo',
+      description: 'เสนอทำเครื่องหมาย Todo (ที่มีอยู่แล้ว) ว่าเสร็จแล้ว จาก todo id (ได้จาก search_todos ก่อน) ยังไม่บันทึกจริง ต้องรอผู้ใช้กดยืนยันในหน้าแชทเสมอ ห้ามบอกว่า "ทำเสร็จให้แล้ว" ให้บอกว่า "เตรียมไว้ให้แล้ว กดยืนยันได้เลย"',
+      parameters: { type: 'object', properties: { todoId: { type: 'string' } }, required: ['todoId'] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_approvals',
+      description: 'ค้นหาเอกสารในระบบอนุมัติ จากชื่อเรื่อง และ/หรือสถานะ — ใช้เมื่อผู้ใช้ถามเรื่องเอกสารรออนุมัติ/สถานะการอนุมัติ',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'คำค้นหาชื่อเรื่อง เว้นว่างได้' },
+          status: { type: 'string', enum: ['draft', 'pending', 'approved', 'revision_requested', 'cancelled', 'all'], description: 'กรองตามสถานะ default all' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_approval',
+      description: 'ดูรายละเอียดเอกสารอนุมัติเต็มๆ พร้อมลำดับผู้อนุมัติทุกคนและสถานะแต่ละคน (ใครอนุมัติแล้ว ใครกำลังรอ) จาก approval id (ได้จาก search_approvals ก่อน)',
+      parameters: { type: 'object', properties: { approvalId: { type: 'string' } }, required: ['approvalId'] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'search_members',
       description: 'ค้นหาสมาชิก/กรรมการในทำเนียบ (Directory) จากชื่อ ชื่อเล่น ตำแหน่ง จังหวัด หรือชื่อคณะกรรมการ — ใช้เมื่อผู้ใช้ถามถึงคน/สมาชิก/กรรมการ เช่น "ใครคือ...", "ติดต่อ...ยังไง", "กรรมการชุดไหนบ้าง" (คนละระบบกับ tasks/budget)',
       parameters: {
@@ -162,6 +206,13 @@ ${sectionList}
   บ้าง) → เรียก search_members (คนละระบบกับ tasks และ budget_projects — ห้ามไป
   ค้นด้วย search_tasks หรือเดาว่าไม่มีข้อมูลติดต่อ ต้องเรียก search_members ก่อน
   เสมอ)
+- ถามถึง todo ส่วนตัวที่มีอยู่แล้ว (มี todo อะไรบ้าง, ยังไม่ได้ทำอะไรบ้าง) →
+  เรียก search_todos ถ้าผู้ใช้บอกว่าทำเสร็จแล้ว/ให้ทำเครื่องหมายเสร็จ → หา id
+  จาก search_todos ก่อนแล้วเรียก propose_complete_todo (เป็นแค่ข้อเสนอ รอ
+  ผู้ใช้ยืนยันเหมือน propose_create_* ห้ามบอกว่า "ทำให้แล้ว")
+- ถามเรื่องเอกสารอนุมัติ/สถานะการอนุมัติ (รออนุมัติอะไรบ้าง, เอกสารนี้ถึงใครแล้ว)
+  → เรียก search_approvals/get_approval (get_approval จะบอกลำดับผู้อนุมัติแต่ละ
+  คนและสถานะ ใช้ตอบว่า "ตอนนี้รอ [ชื่อ] คนที่ [ลำดับ] อนุมัติอยู่" ได้)
 
 แยกให้ถูกระหว่าง 2 อย่างนี้:
 - "งาน" ของทีม (propose_create_task) — ทุกคนในทีมเห็น เหมาะกับโปรเจกต์/กิจกรรม
@@ -252,6 +303,52 @@ async function execGetBudgetProject(supabase: SupabaseClient, args: { projectId?
   const actualExpense = (txs ?? []).filter((t) => t.kind === 'expense').reduce((sum, t) => sum + Number(t.amount), 0)
   const actualRevenue = (txs ?? []).filter((t) => t.kind === 'revenue').reduce((sum, t) => sum + Number(t.amount), 0)
   return { project, actualExpense, actualRevenue, transactions: txs ?? [] }
+}
+
+async function execSearchTodos(supabase: SupabaseClient, ownerId: string, args: { query?: string; status?: string }) {
+  let q = supabase
+    .from('todo_items')
+    .select('id, title, note, status, priority, due_date, due_time')
+    .eq('owner_id', ownerId)
+    .eq('deleted', false)
+    .limit(20)
+  if (args.query?.trim()) q = q.or(`title.ilike.%${args.query.trim()}%,note.ilike.%${args.query.trim()}%`)
+  if (args.status === 'open') q = q.eq('status', 'open')
+  else if (args.status === 'done') q = q.eq('status', 'done')
+  q = q.order('due_date', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false })
+  const { data, error } = await q
+  if (error) return { error: error.message }
+  return { count: data?.length ?? 0, todos: data ?? [] }
+}
+
+async function execSearchApprovals(supabase: SupabaseClient, args: { query?: string; status?: string }) {
+  let q = supabase
+    .from('approval_documents')
+    .select('id, code, title, status, created_by_email, created_at')
+    .eq('deleted', false)
+    .limit(20)
+  if (args.query?.trim()) q = q.ilike('title', `%${args.query.trim()}%`)
+  if (args.status && args.status !== 'all') q = q.eq('status', args.status)
+  q = q.order('created_at', { ascending: false })
+  const { data, error } = await q
+  if (error) return { error: error.message }
+  return { count: data?.length ?? 0, documents: data ?? [] }
+}
+
+async function execGetApproval(supabase: SupabaseClient, args: { approvalId?: string }) {
+  if (!args.approvalId) return { error: 'missing approvalId' }
+  const { data: doc, error } = await supabase
+    .from('approval_documents')
+    .select('id, code, title, description, status, created_by_email, created_at')
+    .eq('id', args.approvalId)
+    .single()
+  if (error || !doc) return { error: error?.message ?? 'ไม่พบเอกสารนี้' }
+  const { data: approvers } = await supabase
+    .from('approval_approvers')
+    .select('order_no, approver_name, status, acted_at, note')
+    .eq('approval_id', args.approvalId)
+    .order('order_no', { ascending: true })
+  return { document: doc, approvers: approvers ?? [] }
 }
 
 async function execSearchMembers(supabase: SupabaseClient, args: { query?: string; committee?: string }) {
@@ -350,7 +447,7 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405)
 
   try {
-    const { supabase } = await requireUser(req)
+    const { supabase, user } = await requireUser(req)
     const { messages: rawClientMessages } = await req.json() as { messages: ChatMessage[] }
     if (!Array.isArray(rawClientMessages) || rawClientMessages.length === 0) {
       return jsonResponse({ error: 'messages is required' }, 400)
@@ -397,7 +494,7 @@ Deno.serve(async (req) => {
     const systemPrompt = await buildSystemPrompt(supabase)
     const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }, ...clientMessages]
 
-    let proposedAction: { type: 'create_task' | 'create_todo'; payload: Record<string, unknown> } | null = null
+    let proposedAction: { type: 'create_task' | 'create_todo' | 'complete_todo'; payload: Record<string, unknown> } | null = null
 
     for (let round = 0; round < 4; round++) {
       const assistantMsg = await callChatWithFallback(messages)
@@ -420,6 +517,9 @@ Deno.serve(async (req) => {
         else if (call.function.name === 'search_budget_projects') result = await execSearchBudgetProjects(supabase, args)
         else if (call.function.name === 'get_budget_project') result = await execGetBudgetProject(supabase, args)
         else if (call.function.name === 'search_members') result = await execSearchMembers(supabase, args)
+        else if (call.function.name === 'search_todos') result = await execSearchTodos(supabase, user.id, args)
+        else if (call.function.name === 'search_approvals') result = await execSearchApprovals(supabase, args)
+        else if (call.function.name === 'get_approval') result = await execGetApproval(supabase, args)
         else if (call.function.name === 'summarize_attachment') result = await execSummarizeAttachment(args)
         else if (call.function.name === 'propose_create_task') {
           proposedAction = { type: 'create_task', payload: args }
@@ -427,6 +527,22 @@ Deno.serve(async (req) => {
         } else if (call.function.name === 'propose_create_todo') {
           proposedAction = { type: 'create_todo', payload: args }
           result = { status: 'proposed', message: 'เตรียมข้อเสนอไว้แล้ว รอผู้ใช้ยืนยัน' }
+        } else if (call.function.name === 'propose_complete_todo') {
+          const todoId = args.todoId as string | undefined
+          if (!todoId) {
+            result = { error: 'missing todoId' }
+          } else {
+            const { data: todo, error: todoErr } = await supabase
+              .from('todo_items').select('id, title, status').eq('id', todoId).eq('owner_id', user.id).single()
+            if (todoErr || !todo) {
+              result = { error: 'ไม่พบ todo นี้ หรือไม่ใช่ของผู้ใช้คนนี้' }
+            } else if (todo.status === 'done') {
+              result = { status: 'already_done', message: 'Todo นี้ทำเสร็จไปแล้ว' }
+            } else {
+              proposedAction = { type: 'complete_todo', payload: { todoId: todo.id, title: todo.title } }
+              result = { status: 'proposed', message: 'เตรียมข้อเสนอไว้แล้ว รอผู้ใช้ยืนยัน' }
+            }
+          }
         } else result = { error: `unknown tool: ${call.function.name}` }
 
         messages.push({ role: 'tool', tool_call_id: call.id, name: call.function.name, content: JSON.stringify(result) })

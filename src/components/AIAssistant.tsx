@@ -38,7 +38,11 @@ type ProposedCreateTodo = {
     due_time?: string
   }
 }
-type ProposedAction = ProposedCreateTask | ProposedCreateTodo
+type ProposedCompleteTodo = {
+  type: 'complete_todo'
+  payload: { todoId?: string; title?: string }
+}
+type ProposedAction = ProposedCreateTask | ProposedCreateTodo | ProposedCompleteTodo
 
 export default function AIAssistant() {
   const { user } = useAuthStore()
@@ -169,6 +173,28 @@ export default function AIAssistant() {
     setProposed(null)
   }
 
+  const confirmCompleteTodo = async () => {
+    if (!proposed || proposed.type !== 'complete_todo' || !user || creating) return
+    const todoId = proposed.payload.todoId
+    if (!todoId) return
+    setCreating(true)
+    setError('')
+    const { data, error: updateError } = await supabase
+      .from('todo_items')
+      .update({ status: 'done', completed_at: new Date().toISOString() })
+      .eq('id', todoId)
+      .eq('owner_id', user.id)
+      .select('*')
+      .single()
+    setCreating(false)
+    if (updateError || !data) {
+      setError(updateError?.message ?? 'ทำเครื่องหมายเสร็จไม่สำเร็จ')
+      return
+    }
+    setCreatedMessage(`✅ ทำเครื่องหมาย "${data.title}" เสร็จแล้ว`)
+    setProposed(null)
+  }
+
   if (!user) return null
 
   return (
@@ -272,6 +298,29 @@ export default function AIAssistant() {
                     style={{ flex: 1, border: 'none', borderRadius: 10, padding: '8px 10px', background: '#6d28d9', color: '#fff', fontFamily: FONT, fontWeight: 700, fontSize: 12.5, cursor: creating ? 'default' : 'pointer', opacity: creating ? 0.6 : 1 }}
                   >
                     {creating ? 'กำลังจด...' : '✅ ยืนยันจด Todo'}
+                  </button>
+                  <button
+                    onClick={() => setProposed(null)}
+                    disabled={creating}
+                    style={{ border: '1px solid #e4e8f2', borderRadius: 10, padding: '8px 12px', background: '#fff', color: '#64748b', fontFamily: FONT, fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+                  >
+                    ยกเลิก
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {proposed && proposed.type === 'complete_todo' && (
+              <div style={{ justifySelf: 'start', maxWidth: '92%', border: '1.5px solid #10b981', borderRadius: 14, padding: 12, background: '#ecfdf5' }}>
+                <div style={{ fontFamily: FONT, fontWeight: 800, fontSize: 12.5, color: '#047857', marginBottom: 6 }}>✔️ ข้อเสนอทำเครื่องหมายเสร็จ</div>
+                <div style={{ fontFamily: FONT, fontSize: 13.5, color: '#1e293b', fontWeight: 700 }}>{proposed.payload.title}</div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  <button
+                    onClick={confirmCompleteTodo}
+                    disabled={creating}
+                    style={{ flex: 1, border: 'none', borderRadius: 10, padding: '8px 10px', background: '#047857', color: '#fff', fontFamily: FONT, fontWeight: 700, fontSize: 12.5, cursor: creating ? 'default' : 'pointer', opacity: creating ? 0.6 : 1 }}
+                  >
+                    {creating ? 'กำลังบันทึก...' : '✅ ยืนยันว่าเสร็จแล้ว'}
                   </button>
                   <button
                     onClick={() => setProposed(null)}
