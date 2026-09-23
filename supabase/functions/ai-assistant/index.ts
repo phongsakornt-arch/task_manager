@@ -287,13 +287,25 @@ async function execSearchTasks(supabase: SupabaseClient, args: { query?: string;
   q = q.order('start_date', { ascending: true, nullsFirst: false }).limit(20)
   const { data, error } = await q
   if (error) return { error: error.message }
-  return {
-    count: data?.length ?? 0,
-    tasks: (data ?? []).map((t) => ({
-      id: t.id, title: t.title, section: (t.sections as { title?: string } | null)?.title ?? null,
-      start_date: t.start_date, end_date: t.end_date, completed: t.completed,
-    })),
+  const tasks = (data ?? []).map((t) => ({
+    id: t.id, title: t.title, section: (t.sections as { title?: string } | null)?.title ?? null,
+    start_date: t.start_date, end_date: t.end_date, completed: t.completed,
+  }))
+  if (tasks.length === 0 && args.query?.trim()) {
+    // เจอ 0 งานจากการค้นหาแบบตรงตัว (ILIKE) — คำค้นอาจสะกดคลาดเคลื่อนเล็กน้อย
+    // (เช่น "bimtec" vs "BIMSTEC") ลอง fuzzy match ด้วย pg_trgm ก่อนสรุปว่าไม่พบจริงๆ
+    const { data: fuzzy } = await supabase.rpc('search_tasks_fuzzy', { search_query: args.query.trim(), result_limit: 20 })
+    let fuzzyTasks = (fuzzy ?? []).map((t: { id: string; title: string; section_title: string | null; start_date: string | null; end_date: string | null; completed: boolean }) => ({
+      id: t.id, title: t.title, section: t.section_title, start_date: t.start_date, end_date: t.end_date, completed: t.completed,
+    }))
+    if (args.status === 'open') fuzzyTasks = fuzzyTasks.filter((t) => !t.completed)
+    else if (args.status === 'done') fuzzyTasks = fuzzyTasks.filter((t) => t.completed)
+    else if (args.status === 'overdue') fuzzyTasks = fuzzyTasks.filter((t) => !t.completed && t.end_date && t.end_date < todayStr())
+    if (fuzzyTasks.length) {
+      return { count: fuzzyTasks.length, tasks: fuzzyTasks, note: 'ผลลัพธ์นี้มาจากการค้นหาแบบใกล้เคียง เพราะคำค้นตรงตัวไม่พบ — คำสะกดในระบบอาจต่างจากที่พิมพ์เล็กน้อย' }
+    }
   }
+  return { count: tasks.length, tasks }
 }
 
 async function execGetTask(supabase: SupabaseClient, args: { taskId?: string }) {
