@@ -178,7 +178,7 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'propose_create_task',
-      description: 'เสนอสร้าง "งาน" ใหม่ในบอร์ดทีม (Task Board, ทุกคนในทีมเห็น) — ใช้เมื่อผู้ใช้พูดถึงงาน/โปรเจกต์/กิจกรรมของทีม ไม่ใช่ todo ส่วนตัว ยังไม่บันทึกจริง ระบบจะแสดงให้ผู้ใช้ยืนยันก่อนเสมอ ห้ามบอกผู้ใช้ว่า "สร้างแล้ว" ให้บอกว่า "เตรียมไว้ให้แล้ว กดยืนยันได้เลย"',
+      description: 'เสนอสร้าง "งาน" ใหม่ 1 งานในบอร์ดทีม (Task Board, ทุกคนในทีมเห็น) — ใช้เมื่อผู้ใช้พูดถึงงาน/โปรเจกต์/กิจกรรมของทีม ไม่ใช่ todo ส่วนตัว ยังไม่บันทึกจริง ระบบจะแสดงให้ผู้ใช้ยืนยันก่อนเสมอ ห้ามบอกผู้ใช้ว่า "สร้างแล้ว" ให้บอกว่า "เตรียมไว้ให้แล้ว กดยืนยันได้เลย" ถ้าผู้ใช้ขอสร้างหลายงานพร้อมกัน (เช่น "แยกเป็น 4 งาน") ให้เรียกเครื่องมือนี้ซ้ำในคำตอบเดียวกัน ครั้งละ 1 งานต่อ 1 การเรียก จนครบทุกงานที่ขอ ระบบจะรวบรวมเป็นรายการให้ยืนยันทีละงานเอง',
       parameters: {
         type: 'object',
         properties: {
@@ -617,7 +617,10 @@ Deno.serve(async (req) => {
     const systemPrompt = await buildSystemPrompt(supabase)
     const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }, ...clientMessages]
 
-    let proposedAction: { type: 'create_task' | 'create_todo' | 'complete_todo'; payload: Record<string, unknown> } | null = null
+    // อาร์เรย์ ไม่ใช่ค่าเดียว — เผื่อผู้ใช้ขอสร้างหลายงาน/todo พร้อมกันในคำสั่งเดียว
+    // (เช่น "สร้าง task แยกกัน 4 งาน") โมเดลจะเรียก propose_* ได้หลายครั้ง ทุกครั้ง
+    // ต้องเก็บไว้ให้ครบ ไม่ใช่ให้ครั้งหลังทับครั้งก่อน
+    const proposedActions: { type: 'create_task' | 'create_todo' | 'complete_todo'; payload: Record<string, unknown> }[] = []
 
     for (let round = 0; round < 4; round++) {
       const assistantMsg = await callChatWithFallback(messages)
@@ -627,7 +630,7 @@ Deno.serve(async (req) => {
       if (!assistantMsg.tool_calls?.length) {
         // gpt-oss models บางทีตอบจริงไปอยู่ที่ reasoning แทน content ถ้า content ว่าง
         const reply = assistantMsg.content?.trim() ? assistantMsg.content : (assistantMsg.reasoning ?? '')
-        return jsonResponse({ success: true, reply, messages, proposedAction })
+        return jsonResponse({ success: true, reply, messages, proposedActions })
       }
 
       for (const call of assistantMsg.tool_calls) {
@@ -648,10 +651,10 @@ Deno.serve(async (req) => {
         else if (call.function.name === 'search_users') result = await execSearchUsers(supabase, user.role, args)
         else if (call.function.name === 'summarize_attachment') result = await execSummarizeAttachment(args)
         else if (call.function.name === 'propose_create_task') {
-          proposedAction = { type: 'create_task', payload: args }
+          proposedActions.push({ type: 'create_task', payload: args })
           result = { status: 'proposed', message: 'เตรียมข้อเสนอไว้แล้ว รอผู้ใช้ยืนยัน' }
         } else if (call.function.name === 'propose_create_todo') {
-          proposedAction = { type: 'create_todo', payload: args }
+          proposedActions.push({ type: 'create_todo', payload: args })
           result = { status: 'proposed', message: 'เตรียมข้อเสนอไว้แล้ว รอผู้ใช้ยืนยัน' }
         } else if (call.function.name === 'propose_complete_todo') {
           const todoId = args.todoId as string | undefined
@@ -665,7 +668,7 @@ Deno.serve(async (req) => {
             } else if (todo.status === 'done') {
               result = { status: 'already_done', message: 'Todo นี้ทำเสร็จไปแล้ว' }
             } else {
-              proposedAction = { type: 'complete_todo', payload: { todoId: todo.id, title: todo.title } }
+              proposedActions.push({ type: 'complete_todo', payload: { todoId: todo.id, title: todo.title } })
               result = { status: 'proposed', message: 'เตรียมข้อเสนอไว้แล้ว รอผู้ใช้ยืนยัน' }
             }
           }
@@ -673,9 +676,19 @@ Deno.serve(async (req) => {
 
         messages.push({ role: 'tool', tool_call_id: call.id, name: call.function.name, content: JSON.stringify(result) })
       }
+
+      // เรียก propose_* ครบตามที่ตั้งใจไว้ในรอบนี้แล้ว (เช่น สร้าง 4 งานตามที่ขอ) —
+      // ตอบกลับได้เลยไม่ต้องวนอีกรอบเพื่อขอ content สรุปซ้ำ (กัน bubble ซ้ำๆ ในแชท
+      // และประหยัด token ไม่ต้องยิง request เพิ่มโดยไม่จำเป็น)
+      if (proposedActions.length > 0) {
+        const reply = proposedActions.length === 1
+          ? 'เตรียมข้อเสนอไว้ให้แล้ว กดยืนยันด้านล่างได้เลยค่ะ'
+          : `เตรียมข้อเสนอไว้ให้แล้ว ${proposedActions.length} รายการ กดยืนยันทีละรายการ หรือยืนยันทั้งหมดได้เลยค่ะ`
+        return jsonResponse({ success: true, reply, messages, proposedActions })
+      }
     }
 
-    return jsonResponse({ success: true, reply: 'ขอโทษค่ะ ตอบไม่ทันในรอบนี้ ลองถามใหม่อีกครั้งนะคะ', messages, proposedAction })
+    return jsonResponse({ success: true, reply: 'ขอโทษค่ะ ตอบไม่ทันในรอบนี้ ลองถามใหม่อีกครั้งนะคะ', messages, proposedActions })
   } catch (error) {
     const rawMsg = error instanceof Error ? error.message : 'Unknown error'
     console.error('ai-assistant error:', rawMsg)
