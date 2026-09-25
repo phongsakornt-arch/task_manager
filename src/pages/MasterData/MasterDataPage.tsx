@@ -310,6 +310,13 @@ export default function MasterDataPage() {
     }
   }, [batchResults])
 
+  // เรียงรายการที่ต้องดูก่อน (ไม่พบ/ใกล้เคียง) ขึ้นบนสุด พบตรงชัดเจนไว้ท้ายสุด —
+  // ไม่ได้แบ่งกลุ่มตามสถานะชำระเงิน (แค่โชว์เป็นหมายเหตุในแต่ละรายการ)
+  const batchResultsSorted = useMemo(() => {
+    if (!batchResults) return []
+    return [...batchResults].sort((a, b) => a.confidence - b.confidence || a.input_index - b.input_index)
+  }, [batchResults])
+
   const exportBatchCsv = () => {
     if (!batchResults) return
     const header = ['ข้อมูลที่ตรวจ', 'สถานะ', 'ชื่อ-นามสกุลที่จับคู่', 'จังหวัด', 'ตำแหน่ง', 'สถานะชำระเงิน', 'ความมั่นใจ']
@@ -633,7 +640,7 @@ export default function MasterDataPage() {
                     )}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
-                    {batchResults?.map(r => (
+                    {batchResultsSorted.map(r => (
                       <div key={r.input_index} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, border: '1px solid #e4e8f2', background: r.confidence >= 85 ? '#f0fdf4' : r.confidence > 0 ? '#fffbeb' : '#fef2f2' }}>
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.input_text}</div>
@@ -642,6 +649,9 @@ export default function MasterDataPage() {
                               ? `→ ${r.first_name} ${r.last_name ?? ''} · ${[r.province, r.yec_position].filter(Boolean).join(' · ')}`
                               : (MATCH_TYPE_LABEL[r.match_type] ?? 'ไม่พบข้อมูลที่ตรงกัน')}
                           </div>
+                          {r.confidence > 0 && r.payment_status && (
+                            <div style={{ fontSize: 11.5, color: '#b45309', marginTop: 1 }}>หมายเหตุ: {r.payment_status}</div>
+                          )}
                         </div>
                         {r.match_type !== 'empty' && (
                           <span style={{ padding: '3px 9px', borderRadius: 999, fontSize: 11.5, fontWeight: 700, background: r.confidence >= 85 ? '#dcfce7' : r.confidence > 0 ? '#fef3c7' : '#fee2e2', color: r.confidence >= 85 ? '#166534' : r.confidence > 0 ? '#92400e' : '#991b1b', flexShrink: 0 }}>
