@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import * as XLSX from 'xlsx'
 import { supabase } from '../../lib/supabase'
 import { canManageMasterData } from '../../lib/permissions'
 import { useAuthStore } from '../../stores/authStore'
@@ -49,6 +50,13 @@ type ResolverResult = {
   id: string; master_id: string; first_name: string; last_name: string; province: string
   phone: string; email: string; yec_position: string; payment_status: string
   match_type: string; confidence: number
+}
+type BatchResult = ResolverResult & { input_index: number; input_text: string }
+
+const MATCH_TYPE_LABEL: Record<string, string> = {
+  phone: 'เบอร์โทร (ตรง)', email: 'อีเมล (ตรง)', name_province: 'ชื่อ+จังหวัด (ตรง)',
+  name_exact: 'ชื่อตรง (ไม่ยืนยันจังหวัด)', fuzzy_name: 'ชื่อใกล้เคียง', name_fuzzy: 'ชื่อใกล้เคียง',
+  not_found: 'ไม่พบ', empty: 'ว่าง',
 }
 
 function normalize(value?: string | null) {
@@ -115,6 +123,15 @@ export default function MasterDataPage() {
   const [resolverResults, setResolverResults] = useState<ResolverResult[] | null>(null)
   const [resolverLoading, setResolverLoading] = useState(false)
   const [resolverError, setResolverError] = useState<string | null>(null)
+
+  const [batchOpen, setBatchOpen] = useState(false)
+  const [batchText, setBatchText] = useState('')
+  const [batchFileName, setBatchFileName] = useState('')
+  const [batchFileRows, setBatchFileRows] = useState<string[]>([])
+  const [batchLoading, setBatchLoading] = useState(false)
+  const [batchError, setBatchError] = useState<string | null>(null)
+  const [batchResults, setBatchResults] = useState<BatchResult[] | null>(null)
+  const batchFileInputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -235,6 +252,87 @@ export default function MasterDataPage() {
     setResolverResults((data ?? []) as ResolverResult[])
   }
 
+  const openBatch = () => {
+    setBatchOpen(true)
+    setBatchText('')
+    setBatchFileName('')
+    setBatchFileRows([])
+    setBatchResults(null)
+    setBatchError(null)
+  }
+
+  const handleBatchFile = (file: File) => {
+    setBatchError(null)
+    setBatchFileName(file.name)
+    const reader = new FileReader()
+    reader.onload = event => {
+      try {
+        const buffer = event.target?.result
+        const workbook = XLSX.read(buffer, { type: 'array' })
+        const sheet = workbook.Sheets[workbook.SheetNames[0]]
+        const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: '' })
+        // join ทุก cell ที่ไม่ว่างในแต่ละแถวเป็น string เดียว ให้ resolver ฝั่ง DB สแกนหาเบอร์/อีเมล/ชื่อเอง
+        const lines = rows
+          .map(row => row.map(cell => String(cell ?? '').trim()).filter(Boolean).join(', '))
+          .filter(Boolean)
+        setBatchFileRows(lines)
+      } catch {
+        setBatchError('อ่านไฟล์ไม่สำเร็จ — รองรับเฉพาะ CSV และ Excel (.xlsx)')
+        setBatchFileRows([])
+      }
+    }
+    reader.readAsArrayBuffer(file)
+  }
+
+  const runBatchResolve = async () => {
+    if (batchLoading) return
+    const typedLines = batchText.split('\n').map(l => l.trim()).filter(Boolean)
+    const inputs = [...typedLines, ...batchFileRows]
+    if (!inputs.length) return
+    setBatchLoading(true)
+    setBatchError(null)
+    setBatchResults(null)
+    const { data, error: rpcError } = await supabase.rpc('resolve_master_members_batch', { inputs })
+    setBatchLoading(false)
+    if (rpcError) { setBatchError(rpcError.message); return }
+    setBatchResults((data ?? []) as BatchResult[])
+  }
+
+  const batchSummary = useMemo(() => {
+    if (!batchResults) return null
+    return {
+      total: batchResults.length,
+      matched: batchResults.filter(r => r.confidence >= 85).length,
+      possible: batchResults.filter(r => r.confidence > 0 && r.confidence < 85).length,
+      notFound: batchResults.filter(r => r.confidence === 0 && r.match_type !== 'empty').length,
+    }
+  }, [batchResults])
+
+  const exportBatchCsv = () => {
+    if (!batchResults) return
+    const header = ['ข้อมูลที่ตรวจ', 'สถานะ', 'ชื่อ-นามสกุลที่จับคู่', 'จังหวัด', 'ตำแหน่ง', 'สถานะชำระเงิน', 'ความมั่นใจ']
+    const escape = (value: unknown) => {
+      const text = value == null ? '' : String(value)
+      return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+    }
+    const lines = [header.map(escape).join(',')]
+    for (const r of batchResults) {
+      lines.push([
+        r.input_text,
+        MATCH_TYPE_LABEL[r.match_type] ?? r.match_type,
+        r.first_name ? `${r.first_name} ${r.last_name ?? ''}`.trim() : '',
+        r.province ?? '', r.yec_position ?? '', r.payment_status ?? '', `${r.confidence}%`,
+      ].map(escape).join(','))
+    }
+    const blob = new Blob([`﻿${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `YEC_BatchCheck_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: '#eef0f7' }}>
       <div
@@ -280,6 +378,9 @@ export default function MasterDataPage() {
           </select>
           <button onClick={() => { setResolverOpen(true); setResolverResults(null); setResolverError(null) }} style={{ padding: '10px 14px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#7c3aed,#a855f7)', color: '#fff', fontFamily: FONT, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 12px rgba(124,58,237,0.28)', whiteSpace: 'nowrap' }}>
             🔗 จับคู่สมาชิก
+          </button>
+          <button onClick={openBatch} style={{ padding: '10px 14px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#0891b2,#06b6d4)', color: '#fff', fontFamily: FONT, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 12px rgba(8,145,178,0.28)', whiteSpace: 'nowrap' }}>
+            📋 ตรวจสถานะแบบหมู่
           </button>
           <button onClick={exportCsv} disabled={!filtered.length} style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(26,39,68,0.14)', background: '#fff', color: '#1a2744', fontFamily: FONT, fontSize: 13, cursor: filtered.length ? 'pointer' : 'default', opacity: filtered.length ? 1 : 0.5, whiteSpace: 'nowrap' }}>
             ⬇ Export CSV
@@ -456,6 +557,94 @@ export default function MasterDataPage() {
                       </span>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {batchOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={e => { if (e.target === e.currentTarget) setBatchOpen(false) }}>
+          <div style={{ background: '#fff', borderRadius: 20, width: '100%', maxWidth: 720, maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(15,23,42,0.22)' }}>
+            <div style={{ background: 'linear-gradient(135deg,#0891b2,#06b6d4)', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10, position: 'sticky', top: 0 }}>
+              <span style={{ fontSize: 20 }}>📋</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: '#fff', fontWeight: 800, fontSize: 14, fontFamily: FONT }}>ตรวจสถานะสมาชิกแบบหมู่</div>
+                <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, fontFamily: FONT }}>วางรายชื่อทีละบรรทัด และ/หรืออัปโหลดไฟล์ CSV/Excel</div>
+              </div>
+              <button onClick={() => setBatchOpen(false)} style={{ border: 'none', background: 'rgba(255,255,255,0.18)', borderRadius: 8, width: 30, height: 30, color: '#fff', cursor: 'pointer', fontSize: 16 }}>✕</button>
+            </div>
+            <div style={{ padding: '18px 20px 22px', fontFamily: FONT }}>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 13, color: '#475569' }}>วาง/พิมพ์รายชื่อ (1 คน ต่อ 1 บรรทัด — ชื่อ, เบอร์โทร, หรืออีเมลก็ได้)</label>
+              <textarea
+                value={batchText}
+                onChange={e => setBatchText(e.target.value)}
+                rows={6}
+                placeholder={'สมชาย ใจดี\n0812345678\nsomchai@example.com'}
+                style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e4e8f2', outline: 'none', fontFamily: FONT, fontSize: 13.5, resize: 'vertical' }}
+              />
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
+                <button
+                  onClick={() => batchFileInputRef.current?.click()}
+                  style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid rgba(26,39,68,0.14)', background: '#f8fafc', color: '#1a2744', fontFamily: FONT, fontSize: 13, cursor: 'pointer' }}
+                >
+                  📎 เลือกไฟล์ CSV/Excel
+                </button>
+                <input
+                  ref={batchFileInputRef}
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  style={{ display: 'none' }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleBatchFile(f) }}
+                />
+                {batchFileName && (
+                  <span style={{ fontSize: 12.5, color: '#64748b' }}>
+                    {batchFileName} ({batchFileRows.length.toLocaleString()} แถว)
+                  </span>
+                )}
+              </div>
+
+              {batchError && <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 9, background: '#fef2f2', color: '#b91c1c', fontSize: 13 }}>⚠️ {batchError}</div>}
+
+              <div style={{ display: 'flex', gap: 8, marginTop: 14, justifyContent: 'flex-end' }}>
+                <button onClick={() => setBatchOpen(false)} style={{ border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '9px 16px', background: '#fff', color: '#64748b', cursor: 'pointer', fontFamily: FONT, fontWeight: 700, fontSize: 13 }}>ปิด</button>
+                <button onClick={runBatchResolve} disabled={batchLoading} style={{ border: 'none', borderRadius: 10, padding: '9px 18px', background: 'linear-gradient(135deg,#0891b2,#06b6d4)', color: '#fff', cursor: 'pointer', fontFamily: FONT, fontWeight: 800, fontSize: 13 }}>
+                  {batchLoading ? 'กำลังตรวจสอบ...' : '🔍 ตรวจสอบทั้งหมด'}
+                </button>
+              </div>
+
+              {batchSummary && (
+                <div style={{ marginTop: 18 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                    <span style={{ padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: '#eef2ff', color: '#1a2744' }}>รวม {batchSummary.total}</span>
+                    <span style={{ padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: '#dcfce7', color: '#166534' }}>พบตรง {batchSummary.matched}</span>
+                    <span style={{ padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: '#fef3c7', color: '#92400e' }}>ใกล้เคียง {batchSummary.possible}</span>
+                    <span style={{ padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: '#fee2e2', color: '#991b1b' }}>ไม่พบ {batchSummary.notFound}</span>
+                    <button onClick={exportBatchCsv} style={{ marginLeft: 'auto', padding: '5px 12px', borderRadius: 999, border: '1px solid rgba(26,39,68,0.14)', background: '#fff', color: '#1a2744', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+                      ⬇ Export ผลลัพธ์ CSV
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
+                    {batchResults?.map(r => (
+                      <div key={r.input_index} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, border: '1px solid #e4e8f2', background: r.confidence >= 85 ? '#f0fdf4' : r.confidence > 0 ? '#fffbeb' : '#fef2f2' }}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.input_text}</div>
+                          <div style={{ fontSize: 12, color: '#94a3b8' }}>
+                            {r.confidence > 0
+                              ? `→ ${r.first_name} ${r.last_name ?? ''} · ${[r.province, r.yec_position].filter(Boolean).join(' · ')}`
+                              : (MATCH_TYPE_LABEL[r.match_type] ?? 'ไม่พบข้อมูลที่ตรงกัน')}
+                          </div>
+                        </div>
+                        {r.match_type !== 'empty' && (
+                          <span style={{ padding: '3px 9px', borderRadius: 999, fontSize: 11.5, fontWeight: 700, background: r.confidence >= 85 ? '#dcfce7' : r.confidence > 0 ? '#fef3c7' : '#fee2e2', color: r.confidence >= 85 ? '#166534' : r.confidence > 0 ? '#92400e' : '#991b1b', flexShrink: 0 }}>
+                            {r.confidence}%
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
