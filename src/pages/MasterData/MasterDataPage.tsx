@@ -599,20 +599,24 @@ export default function MasterDataPage() {
                     </h3>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, padding: 16 }}>
-                    {group.fields.map(([field, label]) => (
-                      <label key={field} style={{ display: 'flex', flexDirection: 'column', gap: 4, gridColumn: field === 'business_detail' || field === 'current_address' ? '1 / -1' : undefined }}>
-                        <span style={{ fontFamily: FONT, fontSize: 11.5, color: '#94a3b8' }}>{label}</span>
-                        {editing ? (
-                          <input
-                            value={(editForm[field] as string) ?? ''}
-                            onChange={e => updateEditField(field, e.target.value)}
-                            style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dbe2ee', outline: 'none', fontFamily: FONT, fontSize: 13.5 }}
-                          />
-                        ) : (
-                          <span style={{ fontFamily: FONT, fontSize: 13.5, fontWeight: 600, color: (selected[field] as string) ? '#1e293b' : '#cbd5e1' }}>{(selected[field] as string) || '-'}</span>
-                        )}
-                      </label>
-                    ))}
+                    {group.fields.map(([field, label]) => {
+                      const rawValue = selected[field]
+                      const value = typeof rawValue === 'string' ? rawValue : ''
+                      return (
+                        <div key={field} style={{ gridColumn: field === 'business_detail' || field === 'current_address' ? '1 / -1' : undefined }}>
+                          <div style={{ fontFamily: FONT, fontSize: 11.5, color: '#94a3b8', marginBottom: 4 }}>{label}</div>
+                          {editing ? (
+                            <input
+                              value={(editForm[field] as string) ?? ''}
+                              onChange={e => updateEditField(field, e.target.value)}
+                              style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', borderRadius: 8, border: '1px solid #dbe2ee', outline: 'none', fontFamily: FONT, fontSize: 13.5 }}
+                            />
+                          ) : (
+                            <div style={{ fontFamily: FONT, fontSize: 13.5, fontWeight: 600, color: value ? '#1e293b' : '#cbd5e1' }}>{value || '-'}</div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               ))}
