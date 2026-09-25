@@ -25,6 +25,7 @@ const BudgetPage = lazy(() => import('./pages/Budget/BudgetPage'))
 const ApprovalPage = lazy(() => import('./pages/Approval/ApprovalPage'))
 const UsersPage = lazy(() => import('./pages/Users/UsersPage'))
 const CheckInAdminPage = lazy(() => import('./pages/CheckIn/CheckInAdminPage'))
+const MasterDataPage = lazy(() => import('./pages/MasterData/MasterDataPage'))
 
 function PageLoader() {
   return (
@@ -79,6 +80,7 @@ export default function App() {
           <Route path="annual" element={<AnnualPage />} />
           <Route path="budget" element={<BudgetPage />} />
           <Route path="directory" element={<DirectoryPage />} />
+          <Route path="master-data" element={<MasterDataPage />} />
           <Route path="approval" element={<ApprovalPage />} />
           <Route path="todo" element={<TodoPage />} />
           <Route path="meetings" element={<RequireRole check={canEditMeetings}><CheckInAdminPage /></RequireRole>} />

@@ -13,6 +13,7 @@ const navItems = [
   { to: '/annual',    icon: '▣', label: 'รายปี' },
   { to: '/budget',    icon: '◈', label: 'งบประมาณ' },
   { to: '/directory', icon: '◉', label: 'ทำเนียบ' },
+  { to: '/master-data', icon: '⛁', label: 'Data Master' },
   { to: '/approval',  icon: '◎', label: 'อนุมัติ' },
 ]
 

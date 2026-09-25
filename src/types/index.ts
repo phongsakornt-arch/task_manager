@@ -42,6 +42,39 @@ export interface Committee {
   active: boolean
 }
 
+export interface MasterMember {
+  id: string
+  master_id: string
+  region?: string
+  province?: string
+  seq_no?: string
+  org_info?: string
+  entity_type?: string
+  business_name?: string
+  tax_id?: string
+  business_type_tsic?: string
+  business_type_network?: string
+  business_detail?: string
+  has_tcc_connect?: string
+  prefix?: string
+  first_name?: string
+  last_name?: string
+  national_id?: string
+  is_yec_provincial?: string
+  yec_position?: string
+  phone?: string
+  email?: string
+  current_address?: string
+  birth_date?: string
+  member_since_date?: string
+  member_expiry_date?: string
+  verified_by_chair?: string
+  payment_status?: string
+  is_chamber_member?: string
+  synced_at?: string
+  deleted: boolean
+}
+
 export interface Section {
   id: string
   code?: string

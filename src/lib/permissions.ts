@@ -29,6 +29,12 @@ export function canManageDirectory(role?: UserRole | null) {
   return role === 'admin' || role === 'super_admin'
 }
 
+// ─── Master Data (ฐานข้อมูลสมาชิก YEC ทั่วประเทศ) ──────────────────────────────
+/** admin, super_admin แก้ไขข้อมูล Master Data ได้ (มีข้อมูลอ่อนไหว เช่น เลขบัตรประชาชน) */
+export function canManageMasterData(role?: UserRole | null) {
+  return role === 'admin' || role === 'super_admin'
+}
+
 // ─── Meeting check-in ─────────────────────────────────────────────────────────
 /** editor, admin, super_admin สร้าง/แก้ไข/ลบการประชุมได้ */
 export function canEditMeetings(role?: UserRole | null) {
