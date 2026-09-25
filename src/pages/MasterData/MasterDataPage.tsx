@@ -72,8 +72,10 @@ async function loadAllMasterMembers(): Promise<{ data: MasterMember[]; error: st
   const rows: MasterMember[] = []
   let from = 0
   for (;;) {
+    // อ่านผ่าน view ที่ mask เลขบัตรประชาชนให้ role ที่ไม่ใช่ admin เห็นเป็น null
+    // แทนที่จะ query ตาราง master_members ตรงๆ (แก้ไขยังคงเขียนเข้าตารางจริงตามเดิม)
     const { data, error } = await supabase
-      .from('master_members')
+      .from('master_members_view')
       .select('*')
       .eq('deleted', false)
       .order('province', { ascending: true })
@@ -382,9 +384,11 @@ export default function MasterDataPage() {
           <button onClick={openBatch} style={{ padding: '10px 14px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#0891b2,#06b6d4)', color: '#fff', fontFamily: FONT, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 12px rgba(8,145,178,0.28)', whiteSpace: 'nowrap' }}>
             📋 ตรวจสถานะแบบหมู่
           </button>
-          <button onClick={exportCsv} disabled={!filtered.length} style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(26,39,68,0.14)', background: '#fff', color: '#1a2744', fontFamily: FONT, fontSize: 13, cursor: filtered.length ? 'pointer' : 'default', opacity: filtered.length ? 1 : 0.5, whiteSpace: 'nowrap' }}>
-            ⬇ Export CSV
-          </button>
+          {canManage && (
+            <button onClick={exportCsv} disabled={!filtered.length} style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(26,39,68,0.14)', background: '#fff', color: '#1a2744', fontFamily: FONT, fontSize: 13, cursor: filtered.length ? 'pointer' : 'default', opacity: filtered.length ? 1 : 0.5, whiteSpace: 'nowrap' }}>
+              ⬇ Export CSV
+            </button>
+          )}
         </div>
       </div>
 
@@ -622,9 +626,11 @@ export default function MasterDataPage() {
                     <span style={{ padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: '#dcfce7', color: '#166534' }}>พบตรง {batchSummary.matched}</span>
                     <span style={{ padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: '#fef3c7', color: '#92400e' }}>ใกล้เคียง {batchSummary.possible}</span>
                     <span style={{ padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: '#fee2e2', color: '#991b1b' }}>ไม่พบ {batchSummary.notFound}</span>
-                    <button onClick={exportBatchCsv} style={{ marginLeft: 'auto', padding: '5px 12px', borderRadius: 999, border: '1px solid rgba(26,39,68,0.14)', background: '#fff', color: '#1a2744', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                      ⬇ Export ผลลัพธ์ CSV
-                    </button>
+                    {canManage && (
+                      <button onClick={exportBatchCsv} style={{ marginLeft: 'auto', padding: '5px 12px', borderRadius: 999, border: '1px solid rgba(26,39,68,0.14)', background: '#fff', color: '#1a2744', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+                        ⬇ Export ผลลัพธ์ CSV
+                      </button>
+                    )}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
                     {batchResults?.map(r => (
