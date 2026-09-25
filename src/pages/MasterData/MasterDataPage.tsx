@@ -45,16 +45,17 @@ const FIELD_GROUPS: { title: string; fields: [keyof MasterMember, string][] }[] 
 
 const CSV_COLUMNS: [keyof MasterMember, string][] = FIELD_GROUPS.flatMap(g => g.fields)
 
-type ResolverForm = { phone: string; email: string; first_name: string; last_name: string; province: string }
+type ResolverForm = { phone: string; email: string; first_name: string; last_name: string; province: string; national_id: string; business_name: string }
 type ResolverResult = {
   id: string; master_id: string; first_name: string; last_name: string; province: string
-  phone: string; email: string; yec_position: string; payment_status: string
+  phone: string; email: string; business_name: string; yec_position: string; payment_status: string
   match_type: string; confidence: number
 }
 type BatchResult = ResolverResult & { input_index: number; input_text: string }
 
 const MATCH_TYPE_LABEL: Record<string, string> = {
   phone: 'เบอร์โทร (ตรง)', email: 'อีเมล (ตรง)', name_province: 'ชื่อ+จังหวัด (ตรง)',
+  national_id: 'เลขบัตรประชาชน (ตรง)', business_exact: 'ชื่อบริษัท (ตรง)', business_fuzzy: 'ชื่อบริษัทใกล้เคียง',
   name_exact: 'ชื่อตรง (ไม่ยืนยันจังหวัด)', fuzzy_name: 'ชื่อใกล้เคียง', name_fuzzy: 'ชื่อใกล้เคียง',
   not_found: 'ไม่พบ', empty: 'ว่าง',
 }
@@ -121,7 +122,7 @@ export default function MasterDataPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
 
   const [resolverOpen, setResolverOpen] = useState(false)
-  const [resolverForm, setResolverForm] = useState<ResolverForm>({ phone: '', email: '', first_name: '', last_name: '', province: '' })
+  const [resolverForm, setResolverForm] = useState<ResolverForm>({ phone: '', email: '', first_name: '', last_name: '', province: '', national_id: '', business_name: '' })
   const [resolverResults, setResolverResults] = useState<ResolverResult[] | null>(null)
   const [resolverLoading, setResolverLoading] = useState(false)
   const [resolverError, setResolverError] = useState<string | null>(null)
@@ -130,6 +131,7 @@ export default function MasterDataPage() {
   const [batchText, setBatchText] = useState('')
   const [batchFileName, setBatchFileName] = useState('')
   const [batchFileRows, setBatchFileRows] = useState<string[]>([])
+  const [batchCheckTypes, setBatchCheckTypes] = useState({ phone: true, email: true, national_id: true, name: true, business: true })
   const [batchLoading, setBatchLoading] = useState(false)
   const [batchError, setBatchError] = useState<string | null>(null)
   const [batchResults, setBatchResults] = useState<BatchResult[] | null>(null)
@@ -237,7 +239,7 @@ export default function MasterDataPage() {
 
   const runResolver = async () => {
     if (resolverLoading) return
-    const hasInput = resolverForm.phone.trim() || resolverForm.email.trim() || resolverForm.first_name.trim() || resolverForm.last_name.trim()
+    const hasInput = resolverForm.phone.trim() || resolverForm.email.trim() || resolverForm.first_name.trim() || resolverForm.last_name.trim() || resolverForm.national_id.trim() || resolverForm.business_name.trim()
     if (!hasInput) return
     setResolverLoading(true)
     setResolverError(null)
@@ -248,6 +250,8 @@ export default function MasterDataPage() {
       p_first_name: resolverForm.first_name.trim() || null,
       p_last_name: resolverForm.last_name.trim() || null,
       p_province: resolverForm.province.trim() || null,
+      p_national_id: resolverForm.national_id.trim() || null,
+      p_business_name: resolverForm.business_name.trim() || null,
     })
     setResolverLoading(false)
     if (rpcError) { setResolverError(rpcError.message); return }
@@ -294,7 +298,14 @@ export default function MasterDataPage() {
     setBatchLoading(true)
     setBatchError(null)
     setBatchResults(null)
-    const { data, error: rpcError } = await supabase.rpc('resolve_master_members_batch', { inputs })
+    const { data, error: rpcError } = await supabase.rpc('resolve_master_members_batch', {
+      inputs,
+      p_check_phone: batchCheckTypes.phone,
+      p_check_email: batchCheckTypes.email,
+      p_check_national_id: batchCheckTypes.national_id,
+      p_check_name: batchCheckTypes.name,
+      p_check_business: batchCheckTypes.business,
+    })
     setBatchLoading(false)
     if (rpcError) { setBatchError(rpcError.message); return }
     setBatchResults((data ?? []) as BatchResult[])
@@ -319,7 +330,7 @@ export default function MasterDataPage() {
 
   const exportBatchCsv = () => {
     if (!batchResults) return
-    const header = ['ข้อมูลที่ตรวจ', 'สถานะ', 'ชื่อ-นามสกุลที่จับคู่', 'จังหวัด', 'ตำแหน่ง', 'สถานะชำระเงิน', 'ความมั่นใจ']
+    const header = ['ข้อมูลที่ตรวจ', 'สถานะ', 'ชื่อ-นามสกุลที่จับคู่', 'ชื่อบริษัท', 'จังหวัด', 'ตำแหน่ง', 'สถานะชำระเงิน', 'ความมั่นใจ']
     const escape = (value: unknown) => {
       const text = value == null ? '' : String(value)
       return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
@@ -330,7 +341,7 @@ export default function MasterDataPage() {
         r.input_text,
         MATCH_TYPE_LABEL[r.match_type] ?? r.match_type,
         r.first_name ? `${r.first_name} ${r.last_name ?? ''}`.trim() : '',
-        r.province ?? '', r.yec_position ?? '', r.payment_status ?? '', `${r.confidence}%`,
+        r.business_name ?? '', r.province ?? '', r.yec_position ?? '', r.payment_status ?? '', `${r.confidence}%`,
       ].map(escape).join(','))
     }
     const blob = new Blob([`﻿${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' })
@@ -540,7 +551,9 @@ export default function MasterDataPage() {
                 <input value={resolverForm.last_name} onChange={e => setResolverForm(f => ({ ...f, last_name: e.target.value }))} placeholder="นามสกุล" style={{ padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e4e8f2', fontFamily: FONT, fontSize: 14 }} />
                 <input value={resolverForm.province} onChange={e => setResolverForm(f => ({ ...f, province: e.target.value }))} placeholder="จังหวัด (ไม่บังคับ)" style={{ padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e4e8f2', fontFamily: FONT, fontSize: 14 }} />
                 <input value={resolverForm.phone} onChange={e => setResolverForm(f => ({ ...f, phone: e.target.value }))} placeholder="เบอร์โทร" style={{ padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e4e8f2', fontFamily: FONT, fontSize: 14 }} />
-                <input value={resolverForm.email} onChange={e => setResolverForm(f => ({ ...f, email: e.target.value }))} placeholder="อีเมล" style={{ gridColumn: '1 / -1', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e4e8f2', fontFamily: FONT, fontSize: 14 }} />
+                <input value={resolverForm.email} onChange={e => setResolverForm(f => ({ ...f, email: e.target.value }))} placeholder="อีเมล" style={{ padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e4e8f2', fontFamily: FONT, fontSize: 14 }} />
+                <input value={resolverForm.national_id} onChange={e => setResolverForm(f => ({ ...f, national_id: e.target.value }))} placeholder="เลขบัตรประชาชน" style={{ padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e4e8f2', fontFamily: FONT, fontSize: 14 }} />
+                <input value={resolverForm.business_name} onChange={e => setResolverForm(f => ({ ...f, business_name: e.target.value }))} placeholder="ชื่อบริษัท" style={{ gridColumn: '1 / -1', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e4e8f2', fontFamily: FONT, fontSize: 14 }} />
               </div>
 
               {resolverError && <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 9, background: '#fef2f2', color: '#b91c1c', fontSize: 13 }}>⚠️ {resolverError}</div>}
@@ -561,7 +574,7 @@ export default function MasterDataPage() {
                     <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, border: '1px solid #e4e8f2', background: r.confidence >= 90 ? '#f0fdf4' : '#fffbeb' }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1e293b' }}>{r.first_name} {r.last_name}</div>
-                        <div style={{ fontSize: 12, color: '#94a3b8' }}>{[r.province, r.yec_position, r.phone].filter(Boolean).join(' · ')}</div>
+                        <div style={{ fontSize: 12, color: '#94a3b8' }}>{[r.business_name, r.province, r.yec_position, r.phone].filter(Boolean).join(' · ')}</div>
                       </div>
                       <span style={{ padding: '3px 9px', borderRadius: 999, fontSize: 11.5, fontWeight: 700, background: r.confidence >= 90 ? '#dcfce7' : '#fef3c7', color: r.confidence >= 90 ? '#166534' : '#92400e', flexShrink: 0 }}>
                         {r.confidence}%
@@ -617,11 +630,32 @@ export default function MasterDataPage() {
                 )}
               </div>
 
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 12.5, color: '#475569', marginBottom: 6 }}>
+                  ตรวจสอบจาก (ยิ่งเลือกน้อย ยิ่งเร็ว — ถ้ารู้ว่าไฟล์นี้มีแต่ชื่อคน ไม่ต้องติ๊กชื่อบริษัทก็ได้)
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                  {([
+                    ['phone', 'เบอร์โทร'], ['email', 'อีเมล'], ['national_id', 'เลขบัตรประชาชน'],
+                    ['name', 'ชื่อ-นามสกุล'], ['business', 'ชื่อบริษัท'],
+                  ] as [keyof typeof batchCheckTypes, string][]).map(([key, label]) => (
+                    <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#334155', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={batchCheckTypes[key]}
+                        onChange={e => setBatchCheckTypes(current => ({ ...current, [key]: e.target.checked }))}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               {batchError && <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 9, background: '#fef2f2', color: '#b91c1c', fontSize: 13 }}>⚠️ {batchError}</div>}
 
               <div style={{ display: 'flex', gap: 8, marginTop: 14, justifyContent: 'flex-end' }}>
                 <button onClick={() => setBatchOpen(false)} style={{ border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '9px 16px', background: '#fff', color: '#64748b', cursor: 'pointer', fontFamily: FONT, fontWeight: 700, fontSize: 13 }}>ปิด</button>
-                <button onClick={runBatchResolve} disabled={batchLoading} style={{ border: 'none', borderRadius: 10, padding: '9px 18px', background: 'linear-gradient(135deg,#0891b2,#06b6d4)', color: '#fff', cursor: 'pointer', fontFamily: FONT, fontWeight: 800, fontSize: 13 }}>
+                <button onClick={runBatchResolve} disabled={batchLoading || !Object.values(batchCheckTypes).some(Boolean)} style={{ border: 'none', borderRadius: 10, padding: '9px 18px', background: 'linear-gradient(135deg,#0891b2,#06b6d4)', color: '#fff', cursor: 'pointer', fontFamily: FONT, fontWeight: 800, fontSize: 13, opacity: !Object.values(batchCheckTypes).some(Boolean) ? 0.5 : 1 }}>
                   {batchLoading ? 'กำลังตรวจสอบ...' : '🔍 ตรวจสอบทั้งหมด'}
                 </button>
               </div>
@@ -646,7 +680,7 @@ export default function MasterDataPage() {
                           <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.input_text}</div>
                           <div style={{ fontSize: 12, color: '#94a3b8' }}>
                             {r.confidence > 0
-                              ? `→ ${r.first_name} ${r.last_name ?? ''} · ${[r.province, r.yec_position].filter(Boolean).join(' · ')}`
+                              ? `→ ${r.first_name} ${r.last_name ?? ''} · ${[r.business_name, r.province, r.yec_position].filter(Boolean).join(' · ')}`
                               : (MATCH_TYPE_LABEL[r.match_type] ?? 'ไม่พบข้อมูลที่ตรงกัน')}
                           </div>
                           {r.confidence > 0 && r.payment_status && (
