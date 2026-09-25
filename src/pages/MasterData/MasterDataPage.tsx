@@ -130,11 +130,13 @@ export default function MasterDataPage() {
   const [batchOpen, setBatchOpen] = useState(false)
   const [batchText, setBatchText] = useState('')
   const [batchFileName, setBatchFileName] = useState('')
-  const [batchFileRows, setBatchFileRows] = useState<string[]>([])
+  const [batchFileRawRows, setBatchFileRawRows] = useState<string[][]>([])
+  const [batchFileHasHeader, setBatchFileHasHeader] = useState(true)
   const [batchCheckTypes, setBatchCheckTypes] = useState({ phone: true, email: true, national_id: true, name: true, business: true })
   const [batchLoading, setBatchLoading] = useState(false)
   const [batchError, setBatchError] = useState<string | null>(null)
   const [batchResults, setBatchResults] = useState<BatchResult[] | null>(null)
+  const [batchFilter, setBatchFilter] = useState<'all' | 'matched' | 'possible' | 'notFound'>('all')
   const batchFileInputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
@@ -262,9 +264,10 @@ export default function MasterDataPage() {
     setBatchOpen(true)
     setBatchText('')
     setBatchFileName('')
-    setBatchFileRows([])
+    setBatchFileRawRows([])
     setBatchResults(null)
     setBatchError(null)
+    setBatchFilter('all')
   }
 
   const handleBatchFile = (file: File) => {
@@ -277,18 +280,22 @@ export default function MasterDataPage() {
         const workbook = XLSX.read(buffer, { type: 'array' })
         const sheet = workbook.Sheets[workbook.SheetNames[0]]
         const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: '' })
-        // join ทุก cell ที่ไม่ว่างในแต่ละแถวเป็น string เดียว ให้ resolver ฝั่ง DB สแกนหาเบอร์/อีเมล/ชื่อเอง
-        const lines = rows
-          .map(row => row.map(cell => String(cell ?? '').trim()).filter(Boolean).join(', '))
-          .filter(Boolean)
-        setBatchFileRows(lines)
+        setBatchFileRawRows(rows.map(row => row.map(cell => String(cell ?? '').trim())))
       } catch {
         setBatchError('อ่านไฟล์ไม่สำเร็จ — รองรับเฉพาะ CSV และ Excel (.xlsx)')
-        setBatchFileRows([])
+        setBatchFileRawRows([])
       }
     }
     reader.readAsArrayBuffer(file)
   }
+
+  // join ทุก cell ที่ไม่ว่างในแต่ละแถวเป็น string เดียว ให้ resolver ฝั่ง DB สแกนหาเบอร์/
+  // อีเมล/ชื่อเอง — ตัดแถวแรกทิ้งถ้าเป็นหัวตาราง ไม่งั้นชื่อคอลัมน์ (เช่น "จังหวัด, ชื่อจริง...")
+  // จะถูกส่งเข้า resolver เป็น input ปลอมๆ 1 แถวไปด้วย
+  const batchFileRows = useMemo(() => {
+    const rows = batchFileHasHeader ? batchFileRawRows.slice(1) : batchFileRawRows
+    return rows.map(row => row.filter(Boolean).join(', ')).filter(Boolean)
+  }, [batchFileRawRows, batchFileHasHeader])
 
   const runBatchResolve = async () => {
     if (batchLoading) return
@@ -327,6 +334,15 @@ export default function MasterDataPage() {
     if (!batchResults) return []
     return [...batchResults].sort((a, b) => a.confidence - b.confidence || a.input_index - b.input_index)
   }, [batchResults])
+
+  // กรองตามแท็บที่เลือก (คลิก badge สรุปด้านบน) — ไม่ต้องไล่สกอลผ่านทั้ง 490
+  // รายการปนกันเพื่อหา 85 รายการที่ไม่พบ
+  const batchResultsFiltered = useMemo(() => {
+    if (batchFilter === 'matched') return batchResultsSorted.filter(r => r.confidence >= 85)
+    if (batchFilter === 'possible') return batchResultsSorted.filter(r => r.confidence > 0 && r.confidence < 85)
+    if (batchFilter === 'notFound') return batchResultsSorted.filter(r => r.confidence === 0 && r.match_type !== 'empty')
+    return batchResultsSorted
+  }, [batchResultsSorted, batchFilter])
 
   const exportBatchCsv = () => {
     if (!batchResults) return
@@ -624,9 +640,15 @@ export default function MasterDataPage() {
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleBatchFile(f) }}
                 />
                 {batchFileName && (
-                  <span style={{ fontSize: 12.5, color: '#64748b' }}>
-                    {batchFileName} ({batchFileRows.length.toLocaleString()} แถว)
-                  </span>
+                  <>
+                    <span style={{ fontSize: 12.5, color: '#64748b' }}>
+                      {batchFileName} ({batchFileRows.length.toLocaleString()} แถว)
+                    </span>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: '#334155', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={batchFileHasHeader} onChange={e => setBatchFileHasHeader(e.target.checked)} />
+                      แถวแรกเป็นหัวตาราง
+                    </label>
+                  </>
                 )}
               </div>
 
@@ -663,21 +685,37 @@ export default function MasterDataPage() {
               {batchSummary && (
                 <div style={{ marginTop: 18 }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-                    <span style={{ padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: '#eef2ff', color: '#1a2744' }}>รวม {batchSummary.total}</span>
-                    <span style={{ padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: '#dcfce7', color: '#166534' }}>พบตรง {batchSummary.matched}</span>
-                    <span style={{ padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: '#fef3c7', color: '#92400e' }}>ใกล้เคียง {batchSummary.possible}</span>
-                    <span style={{ padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: '#fee2e2', color: '#991b1b' }}>ไม่พบ {batchSummary.notFound}</span>
+                    {([
+                      ['all', `รวม ${batchSummary.total}`, '#eef2ff', '#1a2744'],
+                      ['matched', `✅ พบตรง ${batchSummary.matched}`, '#dcfce7', '#166534'],
+                      ['possible', `🟡 ใกล้เคียง ${batchSummary.possible}`, '#fef3c7', '#92400e'],
+                      ['notFound', `🔴 ไม่พบ ${batchSummary.notFound}`, '#fee2e2', '#991b1b'],
+                    ] as [typeof batchFilter, string, string, string][]).map(([key, label, bg, color]) => (
+                      <button
+                        key={key}
+                        onClick={() => setBatchFilter(key)}
+                        style={{
+                          padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: bg, color,
+                          border: batchFilter === key ? `2px solid ${color}` : '2px solid transparent', cursor: 'pointer', fontFamily: FONT,
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
                     {canManage && (
                       <button onClick={exportBatchCsv} style={{ marginLeft: 'auto', padding: '5px 12px', borderRadius: 999, border: '1px solid rgba(26,39,68,0.14)', background: '#fff', color: '#1a2744', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
                         ⬇ Export ผลลัพธ์ CSV
                       </button>
                     )}
                   </div>
+                  {batchResultsFiltered.length === 0 && (
+                    <div style={{ padding: '20px 0', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>ไม่มีรายการในกลุ่มนี้</div>
+                  )}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
-                    {batchResultsSorted.map(r => (
+                    {batchResultsFiltered.map(r => (
                       <div key={r.input_index} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, border: '1px solid #e4e8f2', background: r.confidence >= 85 ? '#f0fdf4' : r.confidence > 0 ? '#fffbeb' : '#fef2f2' }}>
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.input_text}</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: r.confidence > 0 ? '#1e293b' : '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.input_text}</div>
                           <div style={{ fontSize: 12, color: '#94a3b8' }}>
                             {r.confidence > 0
                               ? `→ ${r.first_name} ${r.last_name ?? ''} · ${[r.business_name, r.province, r.yec_position].filter(Boolean).join(' · ')}`
