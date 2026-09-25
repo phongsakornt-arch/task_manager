@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx'
 import { supabase } from '../../lib/supabase'
 import { canManageMasterData } from '../../lib/permissions'
 import { useAuthStore } from '../../stores/authStore'
+import { logActivity } from '../../lib/activityLog'
 import type { MasterMember } from '../../types'
 
 const FONT = 'Anuphan, sans-serif'
@@ -117,6 +118,7 @@ export default function MasterDataPage() {
 
   const [selected, setSelected] = useState<MasterMember | null>(null)
   const [editing, setEditing] = useState(false)
+  const [isNewMember, setIsNewMember] = useState(false)
   const [editForm, setEditForm] = useState<Partial<MasterMember>>({})
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -175,6 +177,7 @@ export default function MasterDataPage() {
   const openDetail = (member: MasterMember) => {
     setSelected(member)
     setEditing(false)
+    setIsNewMember(false)
     setSaveError(null)
   }
 
@@ -182,6 +185,7 @@ export default function MasterDataPage() {
     if (saving) return
     setSelected(null)
     setEditing(false)
+    setIsNewMember(false)
     setEditForm({})
     setSaveError(null)
   }
@@ -193,12 +197,25 @@ export default function MasterDataPage() {
     setSaveError(null)
   }
 
+  const openAddMember = () => {
+    const draft: Partial<MasterMember> = {}
+    setSelected({ id: '', master_id: '', deleted: false, ...draft } as MasterMember)
+    setEditForm(draft)
+    setEditing(true)
+    setIsNewMember(true)
+    setSaveError(null)
+  }
+
   const updateEditField = (field: keyof MasterMember, value: string) => {
     setEditForm(current => ({ ...current, [field]: value }))
   }
 
   const saveEdit = async () => {
-    if (!selected) return
+    if (!selected || !user) return
+    if (isNewMember && !(editForm.first_name?.trim())) {
+      setSaveError('กรุณากรอกชื่ออย่างน้อย')
+      return
+    }
     setSaving(true)
     setSaveError(null)
     const payload: Record<string, string | null> = {}
@@ -208,6 +225,35 @@ export default function MasterDataPage() {
     }
     if (typeof editForm.phone === 'string') payload.phone_normalized = normalizePhoneInput(editForm.phone) || null
     if (typeof editForm.email === 'string') payload.email_normalized = editForm.email.trim().toLowerCase() || null
+
+    if (isNewMember) {
+      const { data: nextId, error: idError } = await supabase.rpc('next_master_id')
+      if (idError || !nextId) {
+        setSaving(false)
+        setSaveError(idError?.message ?? 'สร้าง Master ID ไม่สำเร็จ')
+        return
+      }
+      payload.master_id = nextId as string
+
+      const { data, error: insertError } = await supabase
+        .from('master_members')
+        .insert({ ...payload, deleted: false })
+        .select('*')
+        .single()
+
+      setSaving(false)
+      if (insertError || !data) {
+        setSaveError(insertError?.message ?? 'เพิ่มสมาชิกไม่สำเร็จ')
+        return
+      }
+      const created = data as MasterMember
+      setMembers(current => [...current, created])
+      setSelected(created)
+      setEditing(false)
+      setIsNewMember(false)
+      await logActivity(user, 'master_data.created', `เพิ่มสมาชิก Data Master: ${created.first_name ?? ''} ${created.last_name ?? ''}`.trim(), { master_member_id: created.id })
+      return
+    }
 
     const { data, error: updateError } = await supabase
       .from('master_members')
@@ -225,6 +271,7 @@ export default function MasterDataPage() {
     setMembers(current => current.map(m => (m.id === updated.id ? updated : m)))
     setSelected(updated)
     setEditing(false)
+    await logActivity(user, 'master_data.updated', `แก้ไขข้อมูล Data Master: ${updated.first_name ?? ''} ${updated.last_name ?? ''}`.trim(), { master_member_id: updated.id })
   }
 
   const exportCsv = () => {
@@ -237,6 +284,7 @@ export default function MasterDataPage() {
     a.download = `YEC_MasterData_Export_${stamp}.csv`
     a.click()
     URL.revokeObjectURL(url)
+    void logActivity(user, 'master_data.exported', `Export Data Master ${filtered.length} รายการ`, { count: filtered.length })
   }
 
   const runResolver = async () => {
@@ -367,6 +415,7 @@ export default function MasterDataPage() {
     a.download = `YEC_BatchCheck_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.csv`
     a.click()
     URL.revokeObjectURL(url)
+    void logActivity(user, 'master_data.exported', `Export ผลตรวจสถานะแบบหมู่ ${batchResults.length} รายการ`, { count: batchResults.length, source: 'batch_check' })
   }
 
   return (
@@ -418,6 +467,11 @@ export default function MasterDataPage() {
           <button onClick={openBatch} style={{ padding: '10px 14px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#0891b2,#06b6d4)', color: '#fff', fontFamily: FONT, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 12px rgba(8,145,178,0.28)', whiteSpace: 'nowrap' }}>
             📋 ตรวจสถานะแบบหมู่
           </button>
+          {canManage && (
+            <button onClick={openAddMember} style={{ padding: '10px 14px', borderRadius: 12, border: 'none', background: `linear-gradient(135deg, ${NAVY}, #2d4a8a)`, color: '#fff', fontFamily: FONT, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 12px rgba(26,39,68,0.28)', whiteSpace: 'nowrap' }}>
+              + เพิ่มสมาชิกใหม่
+            </button>
+          )}
           {canManage && (
             <button onClick={exportCsv} disabled={!filtered.length} style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(26,39,68,0.14)', background: '#fff', color: '#1a2744', fontFamily: FONT, fontSize: 13, cursor: filtered.length ? 'pointer' : 'default', opacity: filtered.length ? 1 : 0.5, whiteSpace: 'nowrap' }}>
               ⬇ Export CSV
@@ -499,9 +553,11 @@ export default function MasterDataPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 20px', borderBottom: '1px solid #e4e8f2', flexShrink: 0 }}>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <h2 style={{ margin: 0, fontFamily: FONT, color: '#1e293b', fontSize: 18, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {selected.prefix}{selected.first_name} {selected.last_name}
+                  {isNewMember ? 'เพิ่มสมาชิกใหม่' : `${selected.prefix ?? ''}${selected.first_name ?? ''} ${selected.last_name ?? ''}`}
                 </h2>
-                <div style={{ marginTop: 2, color: '#94a3b8', fontFamily: FONT, fontSize: 12.5 }}>Master ID: {selected.master_id}</div>
+                <div style={{ marginTop: 2, color: '#94a3b8', fontFamily: FONT, fontSize: 12.5 }}>
+                  {isNewMember ? 'Master ID จะสร้างให้อัตโนมัติตอนบันทึก' : `Master ID: ${selected.master_id}`}
+                </div>
               </div>
               {canManage && !editing && (
                 <button onClick={startEdit} style={{ border: '1px solid rgba(26,39,68,0.14)', borderRadius: 10, background: '#f8fafc', color: '#1a2744', fontFamily: FONT, fontSize: 13, padding: '8px 12px', cursor: 'pointer', flexShrink: 0 }}>
@@ -540,9 +596,9 @@ export default function MasterDataPage() {
             {editing && (
               <div style={{ flexShrink: 0, borderTop: '1px solid #e4e8f2', padding: 16, display: 'flex', gap: 10 }}>
                 {saveError && <div style={{ flex: 1, color: '#b91c1c', fontFamily: FONT, fontSize: 12.5, alignSelf: 'center' }}>{saveError}</div>}
-                <button onClick={() => setEditing(false)} disabled={saving} style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid #dbe2ee', background: '#fff', color: '#64748b', fontFamily: FONT, cursor: saving ? 'not-allowed' : 'pointer', marginLeft: 'auto' }}>ยกเลิก</button>
+                <button onClick={() => (isNewMember ? closeDetail() : setEditing(false))} disabled={saving} style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid #dbe2ee', background: '#fff', color: '#64748b', fontFamily: FONT, cursor: saving ? 'not-allowed' : 'pointer', marginLeft: 'auto' }}>ยกเลิก</button>
                 <button onClick={saveEdit} disabled={saving} style={{ padding: '10px 18px', borderRadius: 10, border: 'none', background: `linear-gradient(135deg, ${NAVY}, #2d4a8a)`, color: '#fff', fontFamily: FONT, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-                  {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+                  {saving ? 'กำลังบันทึก...' : (isNewMember ? 'เพิ่มสมาชิก' : 'บันทึก')}
                 </button>
               </div>
             )}

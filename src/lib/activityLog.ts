@@ -9,6 +9,9 @@ const NOTIFY_SUPER_ADMIN_ACTIONS = new Set([
   'approval.submitted', 'approval.approved', 'approval.revision_requested', 'approval.cancelled', 'approval.deleted',
   'budget.transaction.created', 'budget.transaction.deleted', 'budget.plan.updated',
   'kanban.created', 'kanban.updated', 'kanban.deleted', 'kanban.moved',
+  // Data Master มีข้อมูลอ่อนไหว (เลขบัตรประชาชน) ที่สุดในระบบ — แจ้ง super_admin
+  // ทุกครั้งที่มีการแก้ไข/สร้าง/export เพื่อให้ตรวจสอบย้อนหลังได้
+  'master_data.created', 'master_data.updated', 'master_data.exported',
 ])
 
 const ACTION_TITLE: Record<string, string> = {
@@ -16,6 +19,7 @@ const ACTION_TITLE: Record<string, string> = {
   approval: 'ความเคลื่อนไหวเอกสารอนุมัติ',
   budget: 'ความเคลื่อนไหวงบประมาณ',
   kanban: 'ความเคลื่อนไหว Kanban',
+  master_data: 'ความเคลื่อนไหว Data Master',
 }
 
 export async function logActivity(
