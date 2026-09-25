@@ -591,7 +591,7 @@ export default function MasterDataPage() {
 
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '4px 20px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
               {FIELD_GROUPS.map(group => (
-                <div key={group.title} style={{ background: '#fff', borderRadius: 16, boxShadow: CARD_SHADOW, border: '1px solid rgba(15,23,42,0.05)', overflow: 'hidden' }}>
+                <div key={group.title} style={{ flexShrink: 0, background: '#fff', borderRadius: 16, boxShadow: CARD_SHADOW, border: '1px solid rgba(15,23,42,0.05)', overflow: 'hidden' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 16px', borderBottom: `2px solid ${group.accent}` }}>
                     <span style={{ fontSize: 15 }}>{group.icon}</span>
                     <h3 style={{ margin: 0, fontFamily: FONT, fontSize: 13, lineHeight: 1.6, fontWeight: 800, color: group.accent, letterSpacing: 0.2 }}>
