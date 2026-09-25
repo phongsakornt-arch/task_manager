@@ -555,16 +555,16 @@ export default function MasterDataPage() {
 
       {selected && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', justifyContent: 'flex-end', background: 'rgba(15,23,42,0.38)' }} onClick={e => { if (e.target === e.currentTarget) closeDetail() }}>
-          <div style={{ width: 'min(520px, 100%)', height: '100%', background: '#f8fafc', boxShadow: '-16px 0 48px rgba(15,23,42,0.2)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ width: 'min(520px, 100%)', height: '100%', minHeight: 0, background: '#f8fafc', boxShadow: '-16px 0 48px rgba(15,23,42,0.2)', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '22px 20px', background: `linear-gradient(135deg, ${NAVY}, #2d4a8a)`, flexShrink: 0 }}>
               <div style={{ width: 52, height: 52, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg,#c9a84c,#f0d878)', color: '#1a2744', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT, fontWeight: 800, fontSize: 20 }}>
                 {isNewMember ? '+' : (selected.first_name || '?').trim().charAt(0)}
               </div>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <h2 style={{ margin: 0, fontFamily: FONT, color: '#fff', fontSize: 18, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <h2 style={{ margin: 0, fontFamily: FONT, color: '#fff', fontSize: 18, fontWeight: 700, lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {isNewMember ? 'เพิ่มสมาชิกใหม่' : `${selected.prefix ?? ''}${selected.first_name ?? ''} ${selected.last_name ?? ''}`}
                 </h2>
-                <div style={{ marginTop: 3, color: 'rgba(255,255,255,0.65)', fontFamily: FONT, fontSize: 12.5 }}>
+                <div style={{ marginTop: 3, color: 'rgba(255,255,255,0.65)', fontFamily: FONT, fontSize: 12.5, lineHeight: 1.5 }}>
                   {isNewMember ? 'Master ID จะสร้างให้อัตโนมัติตอนบันทึก' : `Master ID: ${selected.master_id}`}
                 </div>
               </div>
@@ -589,12 +589,12 @@ export default function MasterDataPage() {
               </div>
             )}
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '4px 20px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
               {FIELD_GROUPS.map(group => (
                 <div key={group.title} style={{ background: '#fff', borderRadius: 16, boxShadow: CARD_SHADOW, border: '1px solid rgba(15,23,42,0.05)', overflow: 'hidden' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 16px', borderBottom: `2px solid ${group.accent}` }}>
                     <span style={{ fontSize: 15 }}>{group.icon}</span>
-                    <h3 style={{ margin: 0, fontFamily: FONT, fontSize: 13, fontWeight: 800, color: group.accent, letterSpacing: 0.2 }}>
+                    <h3 style={{ margin: 0, fontFamily: FONT, fontSize: 13, lineHeight: 1.6, fontWeight: 800, color: group.accent, letterSpacing: 0.2 }}>
                       {group.title}
                     </h3>
                   </div>
@@ -604,7 +604,7 @@ export default function MasterDataPage() {
                       const value = typeof rawValue === 'string' ? rawValue : ''
                       return (
                         <div key={field} style={{ gridColumn: field === 'business_detail' || field === 'current_address' ? '1 / -1' : undefined }}>
-                          <div style={{ fontFamily: FONT, fontSize: 11.5, color: '#94a3b8', marginBottom: 4 }}>{label}</div>
+                          <div style={{ fontFamily: FONT, fontSize: 11.5, lineHeight: 1.6, color: '#94a3b8', marginBottom: 4 }}>{label}</div>
                           {editing ? (
                             <input
                               value={(editForm[field] as string) ?? ''}
@@ -612,7 +612,7 @@ export default function MasterDataPage() {
                               style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', borderRadius: 8, border: '1px solid #dbe2ee', outline: 'none', fontFamily: FONT, fontSize: 13.5 }}
                             />
                           ) : (
-                            <div style={{ fontFamily: FONT, fontSize: 13.5, fontWeight: 600, color: value ? '#1e293b' : '#cbd5e1' }}>{value || '-'}</div>
+                            <div style={{ fontFamily: FONT, fontSize: 13.5, lineHeight: 1.6, fontWeight: 600, color: value ? '#1e293b' : '#cbd5e1' }}>{value || '-'}</div>
                           )}
                         </div>
                       )
