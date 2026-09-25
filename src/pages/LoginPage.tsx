@@ -13,6 +13,9 @@ function authErrorMessage(message: string) {
   if (normalized.includes('email not confirmed')) {
     return 'อีเมลนี้ยังไม่ได้ยืนยันตัวตน ลองใช้ Magic Link ก่อน'
   }
+  if (normalized.includes('signups not allowed') || normalized.includes('signup') || normalized.includes('user not found')) {
+    return 'อีเมลนี้ยังไม่มีบัญชีในระบบ กรุณาติดต่อ admin ให้สร้างบัญชีในหน้า Users ก่อน'
+  }
   return message
 }
 
@@ -56,7 +59,13 @@ export default function LoginPage() {
 
     const { error: signInError } = await supabase.auth.signInWithOtp({
       email: normalizedEmail,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        // ห้ามสมัครสมาชิกใหม่เองผ่าน Magic Link เด็ดขาด — ต้องมีบัญชีที่ admin
+        // สร้างไว้ล่วงหน้า (หน้า Users) เท่านั้นถึงจะ login ได้ ไม่งั้นใครก็เข้ามา
+        // สมัครเองด้วยอีเมลนอกองค์กรแล้วได้สิทธิ์ member อ่านข้อมูลในระบบได้ทันที
+        shouldCreateUser: false,
+      },
     })
 
     setLoading(false)
