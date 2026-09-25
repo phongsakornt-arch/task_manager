@@ -13,20 +13,20 @@ const PAGE_SIZE = 1000
 const RENDER_CAP = 150
 
 // field, label — ใช้ทั้งแสดงผลใน drawer และช่อง edit, จัดกลุ่มตามที่ระบบเดิม (DATA MASTER) วางไว้
-const FIELD_GROUPS: { title: string; fields: [keyof MasterMember, string][] }[] = [
+const FIELD_GROUPS: { title: string; icon: string; accent: string; fields: [keyof MasterMember, string][] }[] = [
   {
-    title: 'ข้อมูลส่วนตัว',
+    title: 'ข้อมูลส่วนตัว', icon: '👤', accent: '#c9a84c',
     fields: [
       ['prefix', 'คำนำหน้า'], ['first_name', 'ชื่อ'], ['last_name', 'นามสกุล'],
       ['birth_date', 'วัน/เดือน/ปีเกิด'], ['national_id', 'เลขบัตรประจำตัวประชาชน'],
     ],
   },
   {
-    title: 'ข้อมูลติดต่อ',
+    title: 'ข้อมูลติดต่อ', icon: '📞', accent: '#0891b2',
     fields: [['phone', 'เบอร์โทร'], ['email', 'อีเมล'], ['current_address', 'ที่อยู่ปัจจุบัน']],
   },
   {
-    title: 'YEC',
+    title: 'YEC', icon: '🏛️', accent: '#1a2744',
     fields: [
       ['region', 'ภาค'], ['province', 'จังหวัด'], ['is_yec_provincial', 'เป็น YEC หอการค้าจังหวัด'],
       ['yec_position', 'ตำแหน่งใน YEC'], ['member_since_date', 'วันที่เป็นสมาชิก YEC'],
@@ -35,7 +35,7 @@ const FIELD_GROUPS: { title: string; fields: [keyof MasterMember, string][] }[] 
     ],
   },
   {
-    title: 'ธุรกิจ',
+    title: 'ธุรกิจ', icon: '💼', accent: '#7c3aed',
     fields: [
       ['business_name', 'ชื่อกิจการ'], ['entity_type', 'ประเภทกิจการ'], ['tax_id', 'เลขนิติบุคคล/เลขผู้เสียภาษี'],
       ['business_type_tsic', 'ประเภทธุรกิจ (TSIC)'], ['business_type_network', 'ประเภทธุรกิจ (Business Network)'],
@@ -43,6 +43,12 @@ const FIELD_GROUPS: { title: string; fields: [keyof MasterMember, string][] }[] 
     ],
   },
 ]
+
+function paymentBadgeColors(status?: string | null) {
+  if (!status) return null
+  const paid = status.includes('ชำระ') && !status.includes('ไม่')
+  return paid ? { bg: '#dcfce7', color: '#166534' } : { bg: '#fee2e2', color: '#991b1b' }
+}
 
 const CSV_COLUMNS: [keyof MasterMember, string][] = FIELD_GROUPS.flatMap(g => g.fields)
 
@@ -549,31 +555,50 @@ export default function MasterDataPage() {
 
       {selected && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', justifyContent: 'flex-end', background: 'rgba(15,23,42,0.38)' }} onClick={e => { if (e.target === e.currentTarget) closeDetail() }}>
-          <div style={{ width: 'min(520px, 100%)', height: '100%', background: '#fff', boxShadow: '-16px 0 48px rgba(15,23,42,0.2)', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 20px', borderBottom: '1px solid #e4e8f2', flexShrink: 0 }}>
+          <div style={{ width: 'min(520px, 100%)', height: '100%', background: '#f8fafc', boxShadow: '-16px 0 48px rgba(15,23,42,0.2)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '22px 20px', background: `linear-gradient(135deg, ${NAVY}, #2d4a8a)`, flexShrink: 0 }}>
+              <div style={{ width: 52, height: 52, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg,#c9a84c,#f0d878)', color: '#1a2744', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT, fontWeight: 800, fontSize: 20 }}>
+                {isNewMember ? '+' : (selected.first_name || '?').trim().charAt(0)}
+              </div>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <h2 style={{ margin: 0, fontFamily: FONT, color: '#1e293b', fontSize: 18, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <h2 style={{ margin: 0, fontFamily: FONT, color: '#fff', fontSize: 18, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {isNewMember ? 'เพิ่มสมาชิกใหม่' : `${selected.prefix ?? ''}${selected.first_name ?? ''} ${selected.last_name ?? ''}`}
                 </h2>
-                <div style={{ marginTop: 2, color: '#94a3b8', fontFamily: FONT, fontSize: 12.5 }}>
+                <div style={{ marginTop: 3, color: 'rgba(255,255,255,0.65)', fontFamily: FONT, fontSize: 12.5 }}>
                   {isNewMember ? 'Master ID จะสร้างให้อัตโนมัติตอนบันทึก' : `Master ID: ${selected.master_id}`}
                 </div>
               </div>
               {canManage && !editing && (
-                <button onClick={startEdit} style={{ border: '1px solid rgba(26,39,68,0.14)', borderRadius: 10, background: '#f8fafc', color: '#1a2744', fontFamily: FONT, fontSize: 13, padding: '8px 12px', cursor: 'pointer', flexShrink: 0 }}>
+                <button onClick={startEdit} style={{ border: 'none', borderRadius: 10, background: 'rgba(255,255,255,0.16)', color: '#fff', fontFamily: FONT, fontSize: 13, fontWeight: 700, padding: '8px 12px', cursor: 'pointer', flexShrink: 0 }}>
                   ✏️ Edit
                 </button>
               )}
-              <button onClick={closeDetail} disabled={saving} style={{ width: 34, height: 34, borderRadius: 10, border: 'none', background: '#f1f5f9', cursor: saving ? 'not-allowed' : 'pointer', color: '#64748b', fontSize: 20, flexShrink: 0 }}>×</button>
+              <button onClick={closeDetail} disabled={saving} style={{ width: 34, height: 34, borderRadius: 10, border: 'none', background: 'rgba(255,255,255,0.16)', cursor: saving ? 'not-allowed' : 'pointer', color: '#fff', fontSize: 20, flexShrink: 0 }}>×</button>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {!editing && !isNewMember && selected.payment_status && (
+              <div style={{ padding: '10px 20px', flexShrink: 0 }}>
+                {(() => {
+                  const badge = paymentBadgeColors(selected.payment_status)
+                  return badge ? (
+                    <span style={{ display: 'inline-block', padding: '4px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: badge.bg, color: badge.color }}>
+                      {selected.payment_status}
+                    </span>
+                  ) : null
+                })()}
+              </div>
+            )}
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
               {FIELD_GROUPS.map(group => (
-                <div key={group.title}>
-                  <h3 style={{ margin: '0 0 10px', fontFamily: FONT, fontSize: 13, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.4 }}>
-                    § {group.title}
-                  </h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+                <div key={group.title} style={{ background: '#fff', borderRadius: 16, boxShadow: CARD_SHADOW, border: '1px solid rgba(15,23,42,0.05)', overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 16px', borderBottom: `2px solid ${group.accent}` }}>
+                    <span style={{ fontSize: 15 }}>{group.icon}</span>
+                    <h3 style={{ margin: 0, fontFamily: FONT, fontSize: 13, fontWeight: 800, color: group.accent, letterSpacing: 0.2 }}>
+                      {group.title}
+                    </h3>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, padding: 16 }}>
                     {group.fields.map(([field, label]) => (
                       <label key={field} style={{ display: 'flex', flexDirection: 'column', gap: 4, gridColumn: field === 'business_detail' || field === 'current_address' ? '1 / -1' : undefined }}>
                         <span style={{ fontFamily: FONT, fontSize: 11.5, color: '#94a3b8' }}>{label}</span>
@@ -584,7 +609,7 @@ export default function MasterDataPage() {
                             style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dbe2ee', outline: 'none', fontFamily: FONT, fontSize: 13.5 }}
                           />
                         ) : (
-                          <span style={{ fontFamily: FONT, fontSize: 13.5, color: '#1e293b' }}>{(selected[field] as string) || '-'}</span>
+                          <span style={{ fontFamily: FONT, fontSize: 13.5, fontWeight: 600, color: (selected[field] as string) ? '#1e293b' : '#cbd5e1' }}>{(selected[field] as string) || '-'}</span>
                         )}
                       </label>
                     ))}
