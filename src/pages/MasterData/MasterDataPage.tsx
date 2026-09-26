@@ -156,6 +156,8 @@ export default function MasterDataPage() {
     setLoading(false)
   }, [])
 
+  // Standard fetch-on-mount pattern; load() sets loading/error state internally.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [load])
 
   const regions = useMemo(() => Array.from(new Set(members.map(m => m.region).filter(Boolean))).sort() as string[], [members])
@@ -282,7 +284,7 @@ export default function MasterDataPage() {
 
   const exportCsv = () => {
     const csv = toCsv(filtered)
-    const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8;' })
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -414,7 +416,7 @@ export default function MasterDataPage() {
         r.business_name ?? '', r.province ?? '', r.yec_position ?? '', r.payment_status ?? '', `${r.confidence}%`,
       ].map(escape).join(','))
     }
-    const blob = new Blob([`﻿${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' })
+    const blob = new Blob([`\uFEFF${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url

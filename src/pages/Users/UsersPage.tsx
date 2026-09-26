@@ -323,7 +323,63 @@ export default function UsersPage() {
         {error && <div style={{ marginBottom: 14, padding: 14, borderRadius: 14, background: '#fff7ed', color: '#9a3412', fontFamily: 'Anuphan, sans-serif', boxShadow: SHADOW }}>{error}</div>}
         {message && <div style={{ marginBottom: 14, padding: 14, borderRadius: 14, background: '#ecfdf5', color: '#047857', fontFamily: 'Anuphan, sans-serif', boxShadow: SHADOW }}>{message}</div>}
 
-        <div style={{ borderRadius: 18, background: '#fff', boxShadow: SHADOW, border: '1px solid rgba(15,23,42,0.05)', overflowX: 'auto', overflowY: 'hidden' }}>
+        {/* มือถือ: การ์ดเรียงลงล่างแทนตาราง 940px ที่ปุ่ม "ตั้งรหัสผ่าน" ไปตกขอบขวานอกจอ */}
+        <div className="flex flex-col md:hidden" style={{ gap: 10 }}>
+          {loading && <div style={{ padding: 28, color: '#94a3b8', fontFamily: 'Anuphan, sans-serif', textAlign: 'center' }}>กำลังโหลดผู้ใช้...</div>}
+          {!loading && filteredUsers.length === 0 && <div style={{ padding: 28, color: '#94a3b8', fontFamily: 'Anuphan, sans-serif', textAlign: 'center' }}>ไม่พบผู้ใช้ตามเงื่อนไข</div>}
+          {!loading && filteredUsers.map(item => {
+            const meta = roleMeta(item.role)
+            const saving = savingId === item.id
+            const lockedSelfSuperAdmin = item.id === currentUser?.id && item.role === 'super_admin'
+            const canDelete = canManage && item.id !== currentUser?.id
+            return (
+              <div key={item.id} style={{ borderRadius: 16, background: '#fff', boxShadow: SHADOW, border: '1px solid rgba(15,23,42,0.05)', padding: 14, opacity: saving ? 0.65 : 1, fontFamily: 'Anuphan, sans-serif' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 15, lineHeight: 1.5, color: '#1e293b', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+                    <div style={{ fontSize: 12.5, lineHeight: 1.5, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.email}</div>
+                  </div>
+                  <button disabled={!canManage || saving || lockedSelfSuperAdmin} onClick={() => updateUser(item, { active: !item.active })} style={{ flexShrink: 0, border: 'none', borderRadius: 999, padding: '6px 11px', background: item.active ? '#ecfdf5' : '#f1f5f9', color: item.active ? '#047857' : '#64748b', fontFamily: 'Anuphan, sans-serif', fontSize: 12.5, fontWeight: 600 }}>
+                    {item.active ? 'Active' : 'Inactive'}
+                  </button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 12 }}>
+                  {canManage ? (
+                    <select value={item.role} disabled={saving || lockedSelfSuperAdmin} onChange={event => updateUser(item, { role: event.target.value as UserRole })} style={{ width: '100%', minWidth: 0, padding: '9px 10px', borderRadius: 10, border: '1px solid #e4e8f2', background: lockedSelfSuperAdmin ? '#f8fafc' : meta.bg, color: meta.color, fontFamily: 'Anuphan, sans-serif', fontSize: 14 }}>
+                      {ROLES.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
+                    </select>
+                  ) : (
+                    <span style={{ justifySelf: 'start', padding: '5px 10px', borderRadius: 999, background: meta.bg, color: meta.color, fontSize: 12.5, fontWeight: 600 }}>{meta.label}</span>
+                  )}
+                  {canManage ? (
+                    <select value={item.member_id ?? ''} disabled={saving} onChange={event => updateUser(item, { member_id: event.target.value || undefined })} style={{ width: '100%', minWidth: 0, padding: '9px 10px', borderRadius: 10, border: '1px solid #e4e8f2', background: '#fff', color: '#334155', fontFamily: 'Anuphan, sans-serif', fontSize: 14 }}>
+                      <option value="">ไม่ผูกสมาชิก</option>
+                      {members.map(member => <option key={member.id} value={member.id}>{member.name_th}{member.nickname ? ` (${member.nickname})` : ''}</option>)}
+                    </select>
+                  ) : (
+                    <div style={{ fontSize: 13, color: '#64748b', alignSelf: 'center' }}>{item.members?.name_th ?? '-'}</div>
+                  )}
+                </div>
+
+                <div style={{ marginTop: 10, fontSize: 12, color: '#94a3b8' }}>เข้าใช้ล่าสุด: {formatDate(item.last_login ?? item.created_at)}</div>
+
+                {canManage && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                    <button disabled={saving} onClick={() => openPasswordModal(item)} style={{ flex: 1, border: 'none', borderRadius: 10, padding: '10px 12px', background: '#eef2ff', color: '#1d4ed8', fontFamily: 'Anuphan, sans-serif', fontSize: 14, fontWeight: 600 }}>
+                      ตั้งรหัสผ่าน
+                    </button>
+                    <button disabled={saving || !canDelete} onClick={() => setDeleteTarget(item)} style={{ border: 'none', borderRadius: 10, padding: '10px 14px', background: canDelete ? '#fef2f2' : '#f1f5f9', color: canDelete ? '#b91c1c' : '#94a3b8', fontFamily: 'Anuphan, sans-serif', fontSize: 14, fontWeight: 600 }}>
+                      ลบ
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="hidden md:block" style={{ borderRadius: 18, background: '#fff', boxShadow: SHADOW, border: '1px solid rgba(15,23,42,0.05)', overflowX: 'auto', overflowY: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1.4fr) 140px minmax(200px, 1fr) 105px 145px 190px', gap: 12, padding: '12px 16px', background: '#f8fafc', borderBottom: '1px solid #e4e8f2', color: '#64748b', fontFamily: 'Anuphan, sans-serif', fontSize: 12.5, minWidth: 940 }}>
             <span>ผู้ใช้</span>
             <span>Role</span>
@@ -417,11 +473,11 @@ export default function UsersPage() {
       {passwordTarget && (
         <div
           onClick={closePasswordModal}
-          style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(15,23,42,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(15,23,42,0.42)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 20, overflowY: 'auto' }}
         >
           <div
             onClick={event => event.stopPropagation()}
-            style={{ width: '100%', maxWidth: 430, borderRadius: 20, background: '#fff', boxShadow: '0 24px 80px rgba(0,0,0,0.22)', overflow: 'hidden' }}
+            style={{ width: '100%', maxWidth: 430, margin: 'auto 0', flexShrink: 0, borderRadius: 20, background: '#fff', boxShadow: '0 24px 80px rgba(0,0,0,0.22)', overflow: 'hidden' }}
           >
             <div style={{ height: 5, background: 'linear-gradient(90deg, #1a2744, #2d4a8a, #c9a84c)' }} />
             <div style={{ padding: 22 }}>
