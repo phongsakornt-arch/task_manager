@@ -293,14 +293,13 @@ export default function TaskModal({ task, defaultSectionId, defaultParentTaskId,
   }, [readOnly])
 
   useEffect(() => {
+    // RPC instead of reading users directly: RLS on users only returns the
+    // caller's own row to non-admins, which left editors unable to assign anyone else
     supabase
-      .from('users')
-      .select('*, members(id, name_th, nickname, email, position_committee, province)')
-      .eq('active', true)
-      .order('name')
+      .rpc('list_assignable_users')
       .then(({ data }) => {
         if (!data) return
-        const loadedUsers = data as UserWithMember[]
+        const loadedUsers = (data as Omit<UserWithMember, 'role' | 'active'>[]).map(item => ({ ...item, active: true })) as UserWithMember[]
         setUsers(loadedUsers)
         if (!task?.owner_id && initialStaffMemberIds.length) {
           const mappedUserIds = loadedUsers.filter(item => item.member_id && initialStaffMemberIds.includes(item.member_id)).map(item => item.id)

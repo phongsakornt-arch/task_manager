@@ -275,7 +275,7 @@ export default function KanbanBoard() {
     // Standard fetch-on-mount pattern; load() sets loading/error state internally.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
-    supabase.from('users').select('id, name, email').eq('active', true).order('name').then(({ data }) => {
+    supabase.rpc('list_assignable_users').then(({ data }) => {
       if (data) setUsers(data as UserOption[])
     })
   }, [])
