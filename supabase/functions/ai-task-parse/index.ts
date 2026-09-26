@@ -1,4 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts'
+import { requireUser } from '../_shared/auth.ts'
 
 /**
  * ai-task-parse
@@ -157,6 +158,10 @@ async function callOpenAI(prompt: string, key: string) {
 // ── Main ──────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  // anon key is public (shipped in the frontend bundle), so without this anyone could call this and spend the AI quota
+  try { await requireUser(req) } catch {
+    return new Response(JSON.stringify({ error: 'กรุณาเข้าสู่ระบบก่อนใช้งาน' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
   try {
     const input = await req.json() as ParseInput
     if (!input.text?.trim()) return ok({ error: 'text is required' })
