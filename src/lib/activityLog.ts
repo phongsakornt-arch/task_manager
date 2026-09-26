@@ -43,13 +43,12 @@ export async function logActivity(
 
 async function notifySuperAdmins(actor: User | null, action: string, detail: string) {
   try {
-    const { data: admins } = await supabase.from('users').select('id').eq('role', 'super_admin').eq('active', true)
-    const userIds = (admins ?? []).map(a => a.id).filter(id => id !== actor?.id)
-    if (!userIds.length) return
     const prefix = action.split('.')[0]
+    // ให้ send-push หา super_admin เองฝั่ง server — RLS ของตาราง users ให้ role อื่น
+    // อ่านได้แค่แถวตัวเอง ถ้าหาจากฝั่ง browser จะได้ลิสต์ว่างเมื่อ editor/member เป็นคนทำ
     await supabase.functions.invoke('send-push', {
       body: {
-        userIds,
+        toRole: 'super_admin',
         title: ACTION_TITLE[prefix] ?? 'ความเคลื่อนไหวในระบบ',
         body: `${actor?.name ?? actor?.email ?? 'ระบบ'}: ${detail}`,
         tag: `activity-${action}`,
