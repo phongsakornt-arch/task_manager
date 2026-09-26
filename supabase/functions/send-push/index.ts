@@ -1,5 +1,5 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
-import { requireUser, serviceClient } from '../_shared/auth.ts'
+import { requireEditor, serviceClient } from '../_shared/auth.ts'
 import { sendWebPush, WebPushError } from '../_shared/webpush.ts'
 
 // เรียกได้จาก edge function อื่น (service role, ข้าม auth check เพราะไม่มี Authorization header)
@@ -16,7 +16,10 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization') ?? ''
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     const isServiceRole = !!serviceRoleKey && authHeader === `Bearer ${serviceRoleKey}`
-    const caller = isServiceRole ? null : (await requireUser(req)).user
+    // Browser callers must be editor+: every in-app action that sends a push (task
+    // assignment, task/approval/budget/kanban/master-data changes) already requires
+    // that role, so plain members have no legitimate reason to push to anyone.
+    const caller = isServiceRole ? null : (await requireEditor(req)).user
 
     const publicKey = Deno.env.get('VAPID_PUBLIC_KEY')
     const privateKey = Deno.env.get('VAPID_PRIVATE_KEY')
