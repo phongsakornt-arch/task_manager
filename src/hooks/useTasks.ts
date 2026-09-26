@@ -47,7 +47,7 @@ export function useTasks() {
     if (error) updateTask(taskId, { completed: !completed, _optimistic: false })
     else {
       updateTask(taskId, { _optimistic: false })
-      void supabase.functions.invoke('sync-task-calendar', { body: { taskId } }).catch(() => undefined)
+      void supabase.functions.invoke('sync-task-calendar', { body: { taskId, __silent: true } }).catch(() => undefined)
       await logActivity(
         user,
         completed ? 'task.completed' : 'task.reopened',
@@ -67,7 +67,7 @@ export function useTasks() {
     }).eq('id', taskId)
     if (error) updateTask(taskId, { deleted: false, _optimistic: false })
     else {
-      void supabase.functions.invoke('sync-task-calendar', { body: { taskId } }).catch(() => undefined)
+      void supabase.functions.invoke('sync-task-calendar', { body: { taskId, __silent: true } }).catch(() => undefined)
       await logActivity(user, 'task.deleted', `Deleted task: ${task?.title ?? taskId}`, { task_id: taskId })
     }
   }

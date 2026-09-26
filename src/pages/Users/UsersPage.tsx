@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { readFunctionError } from '../../lib/actionFeedback'
 import { canViewUsers, canManageUsers } from '../../lib/permissions'
 import { useAuthStore } from '../../stores/authStore'
 import type { Member, User, UserRole } from '../../types'
@@ -197,7 +198,7 @@ export default function UsersPage() {
     })
 
     if (error) {
-      setError(error.message)
+      setError(await readFunctionError(error))
     } else if (!data?.success) {
       setError('ตั้งรหัสผ่านไม่สำเร็จ')
     } else {
@@ -239,7 +240,7 @@ export default function UsersPage() {
     })
 
     if (error) {
-      setError(error.message)
+      setError(await readFunctionError(error))
     } else if (!data?.success) {
       setError('สร้างผู้ใช้ไม่สำเร็จ')
     } else {
@@ -261,7 +262,7 @@ export default function UsersPage() {
     })
 
     if (error) {
-      setError(error.message)
+      setError(await readFunctionError(error))
     } else if (!data?.success) {
       setError('ลบผู้ใช้ไม่สำเร็จ')
     } else {

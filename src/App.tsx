@@ -5,6 +5,7 @@ import { useAuthStore } from './stores/authStore'
 import { canViewUsers, canManageSystem, canEditMeetings } from './lib/permissions'
 import type { UserRole } from './types'
 import AppShell from './components/AppShell'
+import ToastHost from './components/ToastHost'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import LoginPage from './pages/LoginPage'
 import AuthCallback from './pages/AuthCallback'
@@ -66,6 +67,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
+    <ToastHost />
     <BrowserRouter>
       <Suspense fallback={<PageLoader />}>
       <Routes>

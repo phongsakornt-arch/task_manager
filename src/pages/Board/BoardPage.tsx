@@ -386,7 +386,7 @@ export default function BoardPage() {
     if (error) return
     setDeletedTasks(prev => prev.filter(item => item.id !== task.id))
     addTask({ ...task, deleted: false, deleted_at: undefined })
-    void supabase.functions.invoke('sync-task-calendar', { body: { taskId: task.id } }).catch(() => undefined)
+    void supabase.functions.invoke('sync-task-calendar', { body: { taskId: task.id, __silent: true } }).catch(() => undefined)
     await logActivity(user, 'task.restored', `Restored task: ${task.title}`, { task_id: task.id })
   }
 

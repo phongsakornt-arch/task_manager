@@ -638,7 +638,7 @@ export default function TaskModal({ task, defaultSectionId, defaultParentTaskId,
     }
 
     const { data, error: invokeError } = await supabase.functions.invoke('sync-task-calendar', {
-      body: { taskId: task.id, attendees: attendeeEmails, notify: true, force: true },
+      body: { taskId: task.id, attendees: attendeeEmails, notify: true, force: true, __silent: true },
     })
     setBusy(null)
 
