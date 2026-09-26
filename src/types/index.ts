@@ -195,13 +195,13 @@ export interface KanbanCard {
   status: 'todo' | 'in_progress' | 'done'
   position: number
   due_date?: string | null
-  assignee_id?: string | null
-  assignee_name?: string | null
+  assignee_ids: string[]
+  assignee_names: string[]
+  committee_ids: string[]
   created_by?: string | null
   deleted: boolean
   created_at: string
   updated_at: string
-  assignee?: Pick<User, 'id' | 'name' | 'email'> | null
 }
 
 export interface BudgetCategory {
